@@ -45,55 +45,6 @@ Analysis lives in `src/acoustics/shapeAnalysis.js`:
 
 Chamber markers appear as colored points inside each bulge. Click a marker or a **reson~** module to select that chamber and fly the camera to it (**Viewer → chamber zoom** adjusts distance).
 
-## Audio engine
-
-The browser **does not synthesize audio** yet — it produces an **acoustic model** (JSON) from geometry. Your job is to pick a receiver and map that model to sound.
-
-### Recommended path: SuperCollider
-
-1. Install the [WebSocket Quark](https://github.com/adamhartley/WebSocket) in SuperCollider
-2. Start the relay:
-
-   ```bash
-   npm run bridge
-   ```
-
-3. Evaluate `supercollider/ResonantTorus.scd` and run `~start.value`
-4. In the app: **External bridge → connect** (default `ws://localhost:57120`)
-5. Enable **auto send** or click **Send to SuperCollider** after analysis
-
-Traffic:
-
-- Browser → `ws://localhost:57120`
-- SuperCollider → `ws://localhost:57121`
-
-The SC patch spawns:
-
-- A **partial stack** from `superCollider.partials` (harmonic bed)
-- One **reson~** per chamber (`freq`, `amp`, `decay`, drift from lump geometry)
-- **Route delays / coupling** between chained chambers
-
-Key mapping code: `src/acoustics/acousticModel.js` → `toSuperColliderPayload()`.
-
-### Other engines
-
-The same JSON works for any client. Useful fields:
-
-| Field | Meaning |
-|-------|---------|
-| `synthesis.fundamentalHz` | Body size → base pitch |
-| `synthesis.partials` | Harmonic weights + detune |
-| `chambers[]` | Per-lump freq, amplitude, decay, purity, drift |
-| `network[]` | Serial coupling, throat width, delay between neighbors |
-| `timbre.purity` / `modulation` | Global harmonic vs noisy character |
-| `noiseMix` | Deformation amount sent to the engine |
-
-**Pd / Max:** mirror the bottom patch — one `osc~` or `reson~` per module, `delread~` / `send~`/`receive~` for chain links.
-
-**Web Audio / Tone.js:** `OscillatorNode` + `BiquadFilterNode` (resonant bandpass) per chamber; `DelayNode` on cross-chamber routes using `delayMs`.
-
-**Rust / C++ / embedded:** consume the WebSocket payload or log `buildAcousticModel()` from a headless script.
-
 ### Next steps (audio)
 
 - [ ] Decide primary runtime: SuperCollider, Pd, or in-browser Web Audio
@@ -115,33 +66,6 @@ The same JSON works for any client. Useful fields:
   "superCollider": { "cmd": "resonant_torus_update", "freq": 62.5, "partials": [], "chambers": [], "routes": [], "noise": 0.22 }
 }
 ```
-
-## Project structure
-
-```
-src/
-  app.js                 — boot, analysis scheduling, camera focus
-  acoustics/
-    shapeAnalysis.js     — lump / chamber detection
-    acousticModel.js     — geometry → synthesis + SC payload
-    acousticPanel.js     — bottom panel UI
-    chamberNetworkView.js — Pd-style patch diagram
-    chamberPicker.js     — 3D chamber markers + picking
-  morphogenesis/         — procedural torus / knot + noise deform
-  scene/                 — Three.js viewer, HDR env, camera focus
-  ui/                    — Tweakpane tools, panel resize, loading bars
-bridge/server.js         — WebSocket relay to SuperCollider
-supercollider/           — example receiver synthdefs
-glb/                     — exported morphogenesis bakes (optional archive)
-env/                     — HDR environments
-```
-
-## Controls
-
-- **Orbit:** drag · **Zoom:** scroll
-- **WASD:** walk (Shift+W/S vertical)
-- **Chamber select:** click patch module or 3D marker → camera flies to chamber
-- **Analyze shape:** manual analysis · **auto analyze:** on Tweakpane parameter change
 
 
 ## License
