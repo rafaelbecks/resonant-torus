@@ -1,0 +1,20 @@
+{
+  "name": "resonant-torus",
+  "version": "0.1.0",
+  "description": "Playground for resonant organisms — morphogenesis of torus shapes and acoustic network analysis",
+  "type": "module",
+  "scripts": {
+    "start": "serve . -p 9990",
+    "bridge": "node bridge/server.js"
+  },
+  "author": "Rafael Becerra",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.182.0",
+    "tweakpane": "^4.0.5",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}

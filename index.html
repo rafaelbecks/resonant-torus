@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.182.0",
+    "three/addons/": "https://esm.sh/three@0.182.0/addons/",
+    "tweakpane": "https://esm.sh/tweakpane@4.0.5"
+  }
+}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0a0a0c" />
+<title>Resonant Torus — morphogenesis playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+<div id="analysis-loading" class="analysis-loading" hidden aria-live="polite" aria-busy="false">
+  <div class="analysis-loading__track" role="progressbar">
+    <div class="analysis-loading__bar"></div>
+  </div>
+  <span class="analysis-loading__label">Analyzing shape</span>
+</div>
+
+<div id="app">
+  <main id="viewer-panel">
+    <header class="panel-header">
+      <h1>Resonant Torus</h1>
+      <p class="subtitle">morphogenesis · acoustic organism</p>
+    </header>
+    <div id="viewer-mount"></div>
+  </main>
+
+  <aside id="tools-panel">
+    <div id="tools-resize-handle" class="panel-resize-handle panel-resize-handle--vertical" role="separator" aria-orientation="vertical" aria-label="Resize tools panel"></div>
+    <header class="panel-header">
+      <h2>Tools</h2>
+    </header>
+    <div id="tools-scroll"></div>
+  </aside>
+
+  <section id="acoustics-panel">
+    <div id="acoustics-resize-handle" class="panel-resize-handle panel-resize-handle--horizontal" role="separator" aria-orientation="horizontal" aria-label="Resize acoustics panel"></div>
+    <header class="panel-header">
+      <h2>Acoustic Construction</h2>
+      <div id="acoustics-status" class="status-badge">idle</div>
+    </header>
+    <div id="acoustics-content">
+      <div id="acoustics-network" class="patch-network" aria-label="Chamber network patch"></div>
+      <aside id="acoustics-sidebar">
+        <div id="acoustics-summary" class="acoustics-summary"></div>
+        <div id="acoustics-chamber-detail" class="chamber-detail"></div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<section id="loading" hidden aria-live="polite">
+  <div class="loading-card">
+    <p class="loading-label">Loading</p>
+    <div class="loading-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+      <div class="loading-bar"></div>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
