@@ -4,6 +4,7 @@ import { createInputSystem } from "./input.js";
 import { createMorphSystem } from "./morphogenesis/morphSystem.js";
 import { createAcousticPanel } from "./acoustics/acousticPanel.js";
 import { createChamberPicker } from "./acoustics/chamberPicker.js";
+import { createChamberGraph3d } from "./acoustics/chamberGraph3d.js";
 import { createExternalBridge } from "./bridge/externalBridge.js";
 import { createLoading } from "./ui/loading.js";
 import { createAnalysisLoading } from "./ui/analysisLoading.js";
@@ -37,9 +38,17 @@ export async function bootApp() {
 
   let toolsPanel = null;
   let chamberPicker = null;
+  let chamberGraph3d = null;
 
   function getActiveMesh() {
     return morphSystem.getAnalysisMesh();
+  }
+
+  function syncChamberGraph(model) {
+    chamberGraph3d?.update(model ?? acousticPanel.getModel(), {
+      enabled: params.showChamberGraph,
+      selectedChamberId: acousticPanel.getSelectedChamberId(),
+    });
   }
 
   function focusOnChamber(chamberId) {
@@ -69,9 +78,12 @@ export async function bootApp() {
       if (!skipPicker) {
         chamberPicker?.highlightChamber(id, acousticPanel.getAnalysis());
       }
+      syncChamberGraph();
       if (!skipFocus) focusOnChamber(id);
     },
   });
+
+  chamberGraph3d = createChamberGraph3d({ scene: sceneSystem.scene });
 
   chamberPicker = createChamberPicker({
     camera: sceneSystem.camera,
@@ -109,6 +121,7 @@ export async function bootApp() {
     if (selected != null) {
       chamberPicker.highlightChamber(selected, acousticPanel.getAnalysis());
     }
+    syncChamberGraph(model);
 
     if (toolsPanel?.bridgeParams?.autoSend || sendOnly) {
       if (externalBridge.isConnected()) {
@@ -168,6 +181,7 @@ export async function bootApp() {
       morphSystem.sync();
       scheduleAnalysis();
     },
+    onChamberGraphChange: () => syncChamberGraph(),
   });
 
   await toolsPanel.applyEnvironment();

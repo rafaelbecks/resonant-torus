@@ -1,5 +1,9 @@
 import * as THREE from "three";
 import { morphParams } from "./morphParams.js";
+import {
+  createChenGackstatterGeometry,
+  createLopezRosGeometry,
+} from "./minimalSurfaces.js";
 
 export function createMorphGeometry(shape, extent, params = morphParams) {
   const segments = Math.max(16, Math.floor(params.shapeSegments));
@@ -28,6 +32,12 @@ export function createMorphGeometry(shape, extent, params = morphParams) {
       );
     }
 
+    case "chenGackstatter":
+      return createChenGackstatterGeometry(extent, params);
+
+    case "lopezros":
+      return createLopezRosGeometry(extent, params);
+
     default:
       return new THREE.TorusGeometry(1, 0.35, 16, 64);
   }
@@ -35,8 +45,11 @@ export function createMorphGeometry(shape, extent, params = morphParams) {
 
 export function getMorphSide(side) {
   switch (side) {
-    case "inside": return THREE.BackSide;
-    case "double": return THREE.DoubleSide;
-    default: return THREE.FrontSide;
+    case "inside":
+      return THREE.BackSide;
+    case "double":
+      return THREE.DoubleSide;
+    default:
+      return THREE.FrontSide;
   }
 }

@@ -1,4 +1,4 @@
-export const DEFAULT_ENV = "industrial_sunset";
+export const DEFAULT_ENV = "none";
 
 export const HDR_ENVIRONMENTS = {
   none: { label: "None (studio lights)", file: null },
@@ -44,13 +44,14 @@ export const params = {
   bgBlur: 0,
   showGrid: false,
   showAxes: false,
+  showChamberGraph: true,
   gridSize: 20,
   gridDivisions: 20,
   moveSpeed: 4,
   fpMove: true,
   autoRotate: false,
   rotateSpeed: 0.4,
-  wireframe: false,
+  wireframe: true,
   roughness: 0.45,
   metalness: 0.08,
   autoAnalyze: true,

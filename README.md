@@ -25,7 +25,8 @@ Drag the **vertical handle** on the tools panel edge to resize width. Drag the *
 
 ## Morphogenesis
 
-1. Pick **torus** or **torusknot**, tune extent, tube, segments
+1. Pick **torus**, **torus knot**, or a **minimal surface** (Costa, Chen–Gackstätter, López–Ros)
+2. Tune extent, segments, and shape-specific parameters (folders appear only for the active shape)
 2. Enable **Noise deformation** to bulge the surface along vertex normals
 3. With **auto analyze** on (Acoustics folder), any Tweakpane morph change re-runs shape analysis after a short debounce
 4. Click **Analyze shape** for a manual run

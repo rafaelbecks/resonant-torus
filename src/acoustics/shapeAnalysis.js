@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { detectLopezRosChambers } from "./lopezRosChambers.js";
 
 const _v = new THREE.Vector3();
 const _n = new THREE.Vector3();
@@ -11,7 +12,7 @@ const _pc = new THREE.Vector3();
  */
 export function analyzeShape(
   mesh,
-  { sampleCount = 1024, noiseMix = 0, noiseEnabled = false } = {}
+  { sampleCount = 1024, noiseMix = 0, noiseEnabled = false, shape = null } = {}
 ) {
   if (!mesh?.geometry?.attributes?.position) {
     return emptyAnalysis();
@@ -64,6 +65,7 @@ export function analyzeShape(
 
     const displacement = deformation.perVertex ? deformation.perVertex[i] : 0;
     const ringT = uvAttr ? uvAttr.getX(i) : null;
+    const axialT = uvAttr ? uvAttr.getY(i) : null;
 
     rawSamples.push({
       index: i,
@@ -78,17 +80,21 @@ export function analyzeShape(
       nz: _n.z,
       displacement,
       ringT,
+      axialT,
     });
   }
 
   const samples = rawSamples.map((s) => enrichSample(s));
   const meanMajor = computeMeanMajorRadius(samples);
+  const acousticLayout = geometry.userData?.acousticLayout ?? null;
 
   const { chambers, assignments, mode } = detectChambers(samples, {
     deformation,
     meanMajor,
+    acousticLayout,
+    shape,
   });
-  const network = buildChamberChain(chambers, meanMajor);
+  const network = buildChamberChain(chambers, meanMajor, acousticLayout);
   const timbre = estimateTimbre(chambers, {
     noiseMix: noiseEnabled ? noiseMix : 0,
     deformation,
@@ -138,6 +144,7 @@ function computeMeanMajorRadius(samples) {
 function enrichSample(s) {
   const ringAngle =
     s.ringT != null ? s.ringT * Math.PI * 2 - Math.PI : Math.atan2(s.y, s.x);
+  const axialT = s.axialT != null ? s.axialT : null;
 
   const dx = s.x - s.bx;
   const dy = s.y - s.by;
@@ -148,6 +155,7 @@ function enrichSample(s) {
   return {
     ...s,
     ringAngle,
+    axialT,
     outward,
     bulge,
     thicknessDelta: bulge,
@@ -198,8 +206,14 @@ function isUniformCavity({ deformation, samples }) {
   return range / max < 0.1 && deformation.relativeMax < 0.025;
 }
 
-function detectChambers(samples, { deformation, meanMajor }) {
+function detectChambers(samples, { deformation, meanMajor, acousticLayout, shape }) {
   if (samples.length === 0) return { chambers: [], assignments: [], mode: "empty" };
+
+  if (acousticLayout?.kind === "lopezRos" || shape === "lopezros") {
+    if (acousticLayout?.segments?.length) {
+      return detectLopezRosChambers(samples, acousticLayout, { deformation, meanMajor });
+    }
+  }
 
   if (isUniformCavity({ deformation, samples })) {
     return { ...buildSingleChamber(samples, meanMajor), mode: "uniform" };
@@ -585,8 +599,13 @@ function stableRingAngle(samples) {
   return Math.atan2(sy, sx);
 }
 
-function buildChamberChain(chambers, meanMajor) {
-  const sorted = [...chambers].sort((a, b) => a.ringAngle - b.ringAngle);
+function buildChamberChain(chambers, meanMajor, acousticLayout = null) {
+  const linear = acousticLayout?.linearChain === true;
+  const axialLength = acousticLayout?.axialLength ?? meanMajor;
+
+  const sorted = linear
+    ? [...chambers].sort((a, b) => (a.axialPos ?? 0) - (b.axialPos ?? 0))
+    : [...chambers].sort((a, b) => a.ringAngle - b.ringAngle);
   const chain = sorted.map((c, i) => ({ ...c, chainIndex: i, id: i }));
 
   const nodes = chain.map((c) => ({
@@ -603,12 +622,20 @@ function buildChamberChain(chambers, meanMajor) {
   }
 
   const edges = [];
-  for (let i = 0; i < chain.length; i++) {
+  const edgeCount = linear ? chain.length - 1 : chain.length;
+
+  for (let i = 0; i < edgeCount; i++) {
     const a = chain[i];
-    const b = chain[(i + 1) % chain.length];
-    const angleDist = angularDistance(a.ringAngle, b.ringAngle);
+    const b = chain[linear ? i + 1 : (i + 1) % chain.length];
     const throat = Math.min(a.thickness, b.thickness);
-    const arcLength = angleDist * meanMajor;
+
+    let arcLength;
+    if (linear) {
+      arcLength = Math.abs((b.axialPos ?? 0) - (a.axialPos ?? 0)) * axialLength;
+    } else {
+      arcLength = angularDistance(a.ringAngle, b.ringAngle) * meanMajor;
+    }
+
     const coupling = ((a.resonance + b.resonance) * throat) / (1 + arcLength * 0.35);
 
     edges.push({
@@ -724,6 +751,23 @@ function estimateTimbre(chambers, { noiseMix, deformation, mode }) {
       modulation: 1 - purity,
       resonanceIndex: chambers[0]?.resonance ?? 0,
       harmonicStack: purity > 0.9 ? "perfect" : "harmonic",
+    };
+  }
+
+  if (mode === "lopezRos") {
+    const chamberSpread = Math.min(1, (chambers.length - 1) / 6);
+    const meanLump = chambers.reduce((s, c) => s + (c.lumpScore ?? 0), 0) / chambers.length;
+    const modulation = Math.min(
+      1,
+      noiseMix * 0.45 + chamberSpread * 0.3 + (meanLump / Math.max(1e-4, deformation.max)) * 0.5
+    );
+    const purity = Math.max(0.1, 1 - modulation);
+    const harmonicStack = purity > 0.7 ? "harmonic" : modulation > 0.4 ? "drifting" : "modulated";
+    return {
+      purity,
+      modulation,
+      resonanceIndex: chambers.reduce((s, c) => s + c.resonance, 0) / chambers.length,
+      harmonicStack,
     };
   }
 

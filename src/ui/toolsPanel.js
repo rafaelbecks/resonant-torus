@@ -1,10 +1,5 @@
 import { Pane } from "tweakpane";
-import {
-  params,
-  getEnvOptions,
-  getEnvPath,
-  BRIDGE_DEFAULT_URL,
-} from "../config.js";
+import { params, getEnvOptions, getEnvPath, BRIDGE_DEFAULT_URL } from "../config.js";
 import { setupMorphUI } from "../morphogenesis/morphUI.js";
 
 export function createToolsPanel({
@@ -15,6 +10,7 @@ export function createToolsPanel({
   onAnalyze,
   onRefresh,
   onEnvironmentChange,
+  onChamberGraphChange,
 }) {
   const pane = new Pane({ title: "Resonant Torus", container });
 
@@ -114,6 +110,9 @@ export function createToolsPanel({
 
   const acousticFolder = pane.addFolder({ title: "Acoustics", expanded: true });
   acousticFolder.addBinding(params, "autoAnalyze", { label: "auto analyze" });
+  acousticFolder
+    .addBinding(params, "showChamberGraph", { label: "3d chamber graph" })
+    .on("change", () => onChamberGraphChange?.());
   acousticFolder.addButton({ title: "Analyze shape" }).on("click", () => onAnalyze?.());
 
   const bridgeFolder = pane.addFolder({ title: "External bridge", expanded: false });

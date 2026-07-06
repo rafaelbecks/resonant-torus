@@ -2,8 +2,25 @@ const STORAGE_KEY = "resonant-torus-panel-sizes";
 
 const LIMITS = {
   toolsWidth: { min: 280, max: 720 },
-  acousticsHeight: { min: 100, max: () => Math.floor(window.innerHeight * 0.65) },
+  acousticsHeight: { min: 120, minViewer: 160 },
 };
+
+function getAppHeight() {
+  return document.getElementById("app")?.clientHeight ?? window.innerHeight;
+}
+
+function acousticsMaxHeight() {
+  return Math.max(LIMITS.acousticsHeight.min + 80, getAppHeight() - LIMITS.acousticsHeight.minViewer);
+}
+
+function readAcousticsHeight() {
+  const panel = document.getElementById("acoustics-panel");
+  if (panel) {
+    const measured = panel.getBoundingClientRect().height;
+    if (measured > 0) return measured;
+  }
+  return readPxVar("--acoustics-height");
+}
 
 function loadSaved() {
   try {
@@ -28,6 +45,12 @@ function readPxVar(name) {
 
 function setPxVar(name, px) {
   document.documentElement.style.setProperty(name, `${Math.round(px)}px`);
+}
+
+function clampAcousticsHeight(px) {
+  const min = LIMITS.acousticsHeight.min;
+  const max = acousticsMaxHeight();
+  return Math.min(max, Math.max(min, px));
 }
 
 function beginDrag({ cursor, onMove, onEnd }) {
@@ -87,21 +110,24 @@ function setupHeightResize(handle, { onResize } = {}) {
     handle.classList.add("is-dragging");
 
     const startY = ev.clientY;
-    const startHeight = readPxVar("--acoustics-height");
-    const max = LIMITS.acousticsHeight.max();
+    const startHeight = readAcousticsHeight();
     const { min } = LIMITS.acousticsHeight;
 
     beginDrag({
       cursor: "ns-resize",
       onMove: (moveEv) => {
-        const next = Math.min(max, Math.max(min, startHeight + (startY - moveEv.clientY)));
-        setPxVar("--acoustics-height", next);
+        const delta = startY - moveEv.clientY;
+        const next = clampAcousticsHeight(startHeight + delta);
+        setPxVar("--acoustics-height", Math.min(acousticsMaxHeight(), Math.max(min, next)));
         onResize?.();
       },
       onEnd: () => {
         handle.classList.remove("is-dragging");
         handle.releasePointerCapture(ev.pointerId);
-        saveSizes({ ...loadSaved(), acousticsHeight: readPxVar("--acoustics-height") });
+        saveSizes({
+          ...loadSaved(),
+          acousticsHeight: clampAcousticsHeight(readAcousticsHeight()),
+        });
       },
     });
   });
@@ -109,12 +135,21 @@ function setupHeightResize(handle, { onResize } = {}) {
 
 export function initPanelResize({ onResize } = {}) {
   const saved = loadSaved();
-  if (saved.toolsWidth) setPxVar("--tools-width", saved.toolsWidth);
-  if (saved.acousticsHeight) setPxVar("--acoustics-height", saved.acousticsHeight);
+  if (saved.toolsWidth) {
+    setPxVar("--tools-width", Math.min(LIMITS.toolsWidth.max, Math.max(LIMITS.toolsWidth.min, saved.toolsWidth)));
+  }
+  if (saved.acousticsHeight) {
+    setPxVar("--acoustics-height", clampAcousticsHeight(saved.acousticsHeight));
+  }
 
   const toolsHandle = document.getElementById("tools-resize-handle");
   const acousticsHandle = document.getElementById("acoustics-resize-handle");
 
   if (toolsHandle) setupWidthResize(toolsHandle, { onResize });
   if (acousticsHandle) setupHeightResize(acousticsHandle, { onResize });
+
+  window.addEventListener("resize", () => {
+    setPxVar("--acoustics-height", clampAcousticsHeight(readAcousticsHeight()));
+    onResize?.();
+  });
 }
