@@ -1,5 +1,5 @@
 import { Pane } from "tweakpane";
-import { params, getEnvOptions, getEnvPath, BRIDGE_DEFAULT_URL } from "../config.js";
+import { params, getEnvOptions, getEnvPath } from "../config.js";
 import { setupMorphUI } from "../morphogenesis/morphUI.js";
 
 export function createToolsPanel({
@@ -8,11 +8,13 @@ export function createToolsPanel({
   sceneSystem,
   externalBridge,
   onAnalyze,
+  onPitchChange,
+  onCopyForSuperCollider,
   onRefresh,
   onEnvironmentChange,
   onChamberGraphChange,
 }) {
-  const pane = new Pane({ title: "Resonant Torus", container });
+  const pane = new Pane({ title: "Resonant Organisms", container });
 
   setupMorphUI(pane, morphSystem, () => {
     onRefresh?.();
@@ -110,16 +112,28 @@ export function createToolsPanel({
 
   const acousticFolder = pane.addFolder({ title: "Acoustics", expanded: true });
   acousticFolder.addBinding(params, "autoAnalyze", { label: "auto analyze" });
+  acousticFolder.addBinding(params, "pitchMultiplier", {
+    label: "pitch mult",
+    min: 0.25,
+    max: 8,
+    step: 0.25,
+  }).on("change", () => onPitchChange?.());
   acousticFolder
     .addBinding(params, "showChamberGraph", { label: "3d chamber graph" })
     .on("change", () => onChamberGraphChange?.());
   acousticFolder.addButton({ title: "Analyze shape" }).on("click", () => onAnalyze?.());
 
-  const bridgeFolder = pane.addFolder({ title: "External bridge", expanded: false });
+  const scFolder = pane.addFolder({ title: "SuperCollider", expanded: true });
+  scFolder.addButton({ title: "Copy model JSON" }).on("click", () => {
+    console.log("[SC copy] button clicked");
+    onCopyForSuperCollider?.();
+  });
+
+  const bridgeFolder = pane.addFolder({ title: "OSC bridge (optional)", expanded: false });
   const bridgeParams = {
     enabled: false,
-    url: BRIDGE_DEFAULT_URL,
-    autoSend: true,
+    url: "ws://localhost:57120",
+    autoSend: false,
   };
 
   bridgeFolder.addBinding(bridgeParams, "enabled", { label: "connect" }).on("change", (ev) => {
@@ -129,9 +143,6 @@ export function createToolsPanel({
     externalBridge.setUrl(ev.value);
   });
   bridgeFolder.addBinding(bridgeParams, "autoSend", { label: "auto send" });
-  bridgeFolder.addButton({ title: "Send to SuperCollider" }).on("click", () => {
-    onAnalyze?.({ sendOnly: true });
-  });
 
   async function applyEnvironment() {
     const path = getEnvPath(params.environment);

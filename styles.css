@@ -221,8 +221,71 @@ body {
   font-family: "IBM Plex Mono", monospace;
   font-size: 10px;
   text-align: left;
+  cursor: default;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s, opacity 0.15s;
+}
+
+.patch-module--silent {
+  opacity: 0.42;
+}
+
+.patch-module__head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.patch-module__select {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.patch-chamber-toggle {
+  flex-shrink: 0;
+  min-width: 32px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid #3a3a48;
+  border-radius: 2px;
+  background: #101018;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.patch-chamber-toggle:hover {
+  border-color: var(--module-color, var(--resonance));
+  color: var(--text);
+}
+
+.patch-chamber-toggle--on {
+  background: #1a2820;
+  border-color: #5a9a68;
+  color: #a8e0b0;
+}
+
+.patch-chamber-toggle--off {
+  background: #2a2020;
+  border-color: #6a4848;
+  color: #c09090;
+}
+
+.patch-module__select:hover .patch-module__title {
+  filter: brightness(1.15);
 }
 
 .patch-module:hover {

@@ -1,4 +1,5 @@
 import { BRIDGE_DEFAULT_URL } from "../config.js";
+import { toBridgePayload } from "./bridgePayload.js";
 
 /**
  * WebSocket bridge to external runtimes (Node relay, SuperCollider, etc.)
@@ -94,10 +95,9 @@ export function createExternalBridge({ url = BRIDGE_DEFAULT_URL } = {}) {
   }
 
   function sendAcousticModel(model) {
-    return send({
-      type: "acoustic_model",
-      ...model,
-    });
+    const payload = toBridgePayload(model);
+    if (!payload) return false;
+    return send(payload);
   }
 
   function on(listener) {

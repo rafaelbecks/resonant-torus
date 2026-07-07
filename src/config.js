@@ -56,6 +56,7 @@ export const params = {
   metalness: 0.08,
   autoAnalyze: true,
   chamberFocusDistance: 1.15,
+  pitchMultiplier: 1,
 };
 
 export const CAMERA_INTRO = {

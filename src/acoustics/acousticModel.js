@@ -4,11 +4,16 @@ import { morphParams } from "../morphogenesis/morphParams.js";
  * Map shape analysis to acoustic parameters for external sound engines.
  * Pure torus → sine-like timbre; deformed → modulated with chamber network.
  */
-export function buildAcousticModel(analysis, { noiseMix = 0, shape = morphParams.shape } = {}) {
+export function buildAcousticModel(
+  analysis,
+  { noiseMix = 0, shape = morphParams.shape, pitchMultiplier = 1, chamberGates = null, bedsGate = 1 } = {}
+) {
   const { timbre, chambers, network } = analysis;
   const isPureOscillator = chambers.length === 1 && timbre.harmonicStack === "perfect";
 
-  const fundamentalHz = estimateFundamental(shape, analysis);
+  const baseFundamentalHz = estimateFundamental(shape, analysis);
+  const pitch = Math.max(0.25, Number(pitchMultiplier) || 1);
+  const fundamentalHz = baseFundamentalHz * pitch;
   const partials = buildPartials(timbre, noiseMix, chambers.length, isPureOscillator);
   const chamberModes = chambers.map((c, i) => {
     const thicknessRatio = c.thickness / Math.max(1e-4, analysis.meanMajor ?? 1);
@@ -54,6 +59,7 @@ export function buildAcousticModel(analysis, { noiseMix = 0, shape = morphParams
     timestamp: Date.now(),
     shape,
     noiseMix,
+    pitchMultiplier: pitch,
     analysis,
     timbre: {
       purity: timbre.purity,
@@ -62,13 +68,22 @@ export function buildAcousticModel(analysis, { noiseMix = 0, shape = morphParams
       harmonicStack: timbre.harmonicStack,
     },
     synthesis: {
+      baseFundamentalHz,
       fundamentalHz,
       partials,
       noiseAmount: isPureOscillator ? 0 : noiseMix * timbre.modulation,
     },
     chambers: chamberModes,
     network: routes,
-    superCollider: toSuperColliderPayload(fundamentalHz, partials, chamberModes, routes, noiseMix),
+    superCollider: toSuperColliderPayload(
+      fundamentalHz,
+      partials,
+      chamberModes,
+      routes,
+      noiseMix,
+      chamberGates,
+      bedsGate
+    ),
   };
 }
 
@@ -119,11 +134,12 @@ function buildPartials(timbre, noiseMix, chamberCount, isPureOscillator) {
   return partials;
 }
 
-function toSuperColliderPayload(fundamental, partials, chambers, routes, noiseMix) {
+function toSuperColliderPayload(fundamental, partials, chambers, routes, noiseMix, chamberGates, bedsGate = 1) {
   return {
     cmd: "resonant_torus_update",
     freq: fundamental,
     partials: partials.map((p) => [p.harmonic, p.amplitude, p.detune]),
+    bedsGate,
     chambers: chambers.map((c) => ({
       id: c.id,
       chainIndex: c.chainIndex,
@@ -133,6 +149,7 @@ function toSuperColliderPayload(fundamental, partials, chambers, routes, noiseMi
       thickness: c.thickness,
       drift: c.driftHz,
       ringAngle: c.ringAngle,
+      gate: chamberGates?.[c.id] ?? 1,
     })),
     routes: routes.map((r) => ({
       from: r.from,

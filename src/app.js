@@ -6,6 +6,8 @@ import { createAcousticPanel } from "./acoustics/acousticPanel.js";
 import { createChamberPicker } from "./acoustics/chamberPicker.js";
 import { createChamberGraph3d } from "./acoustics/chamberGraph3d.js";
 import { createExternalBridge } from "./bridge/externalBridge.js";
+import { toBridgePayload } from "./bridge/bridgePayload.js";
+import { copyTextToClipboard } from "./bridge/copyJson.js";
 import { createLoading } from "./ui/loading.js";
 import { createAnalysisLoading } from "./ui/analysisLoading.js";
 import { createToolsPanel } from "./ui/toolsPanel.js";
@@ -81,6 +83,12 @@ export async function bootApp() {
       syncChamberGraph();
       if (!skipFocus) focusOnChamber(id);
     },
+    onChamberMixChange: (model) => {
+      syncChamberGraph(model);
+      if (toolsPanel?.bridgeParams?.autoSend && externalBridge.isConnected() && model) {
+        externalBridge.sendAcousticModel(model);
+      }
+    },
   });
 
   chamberGraph3d = createChamberGraph3d({ scene: sceneSystem.scene });
@@ -103,7 +111,16 @@ export async function bootApp() {
 
   const externalBridge = createExternalBridge();
 
-  function runAnalysisSync({ sendOnly = false } = {}) {
+  externalBridge.on((event) => {
+    if (event !== "connected") return;
+    if (!toolsPanel?.bridgeParams?.autoSend) return;
+    const model = acousticPanel.getModel();
+    if (model && externalBridge.isConnected()) {
+      externalBridge.sendAcousticModel(model);
+    }
+  });
+
+  function runAnalysisSync() {
     const mesh = getActiveMesh();
     if (!mesh) return null;
 
@@ -114,6 +131,7 @@ export async function bootApp() {
       noiseMix,
       noiseEnabled: morphParams.noiseEnabled,
       shape: morphParams.shape,
+      pitchMultiplier: params.pitchMultiplier,
     });
 
     chamberPicker.updateFromAnalysis(acousticPanel.getAnalysis());
@@ -123,16 +141,14 @@ export async function bootApp() {
     }
     syncChamberGraph(model);
 
-    if (toolsPanel?.bridgeParams?.autoSend || sendOnly) {
-      if (externalBridge.isConnected()) {
-        externalBridge.sendAcousticModel(model);
-      }
+    if (toolsPanel?.bridgeParams?.autoSend && externalBridge.isConnected()) {
+      externalBridge.sendAcousticModel(model);
     }
 
     return model;
   }
 
-  async function runAnalysis(opts = {}) {
+  async function runAnalysis() {
     analysisQueued = true;
     const job = ++analysisJob;
 
@@ -151,11 +167,48 @@ export async function bootApp() {
     }
 
     try {
-      return runAnalysisSync(opts);
+      return runAnalysisSync();
     } finally {
       analysisLoading.hide();
       analysisLoadingEl?.setAttribute("aria-busy", "false");
-      if (analysisQueued) runAnalysis(opts);
+      if (analysisQueued) runAnalysis();
+    }
+  }
+
+  function copyModelForSuperCollider() {
+    console.log("[SC copy] --- Copy model JSON ---");
+
+    let model = acousticPanel.getModel();
+    if (!model) {
+      console.log("[SC copy] no cached model, running analysis now...");
+      model = runAnalysisSync();
+    }
+
+    if (!model) {
+      console.warn("[SC copy] ABORT: no shape to analyze (is the torus loaded?)");
+      return;
+    }
+
+    const payload = toBridgePayload(model);
+    if (!payload?.superCollider) {
+      console.warn("[SC copy] ABORT: payload missing superCollider block", payload);
+      return;
+    }
+
+    const json = JSON.stringify(payload, null, 2);
+    const chambers = payload.superCollider.chambers?.length ?? 0;
+    const freq = payload.superCollider.freq;
+
+    console.log(
+      `[SC copy] model shape=${payload.shape} chambers=${chambers} f0=${freq}Hz bytes=${json.length}`
+    );
+
+    const copied = copyTextToClipboard(json);
+    if (copied) {
+      console.log("[SC copy] OK — JSON is on the clipboard. Paste in SC GUI -> Apply JSON.");
+    } else {
+      console.error("[SC copy] clipboard failed — copy manually from below:");
+      console.log(json);
     }
   }
 
@@ -168,12 +221,23 @@ export async function bootApp() {
     }, 150);
   }
 
+  function applyPitchMultiplier() {
+    const model = acousticPanel.rebuildModel({ pitchMultiplier: params.pitchMultiplier });
+    syncChamberGraph(model);
+    if (toolsPanel?.bridgeParams?.autoSend && externalBridge.isConnected() && model) {
+      externalBridge.sendAcousticModel(model);
+    }
+    return model;
+  }
+
   toolsPanel = createToolsPanel({
     container: document.getElementById("tools-scroll"),
     morphSystem,
     sceneSystem,
     externalBridge,
-    onAnalyze: (opts) => runAnalysis(opts),
+    onAnalyze: () => runAnalysis(),
+    onPitchChange: () => applyPitchMultiplier(),
+    onCopyForSuperCollider: () => copyModelForSuperCollider(),
     onEnvironmentChange: async () => {
       await toolsPanel.applyEnvironment();
     },

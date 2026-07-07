@@ -9,9 +9,10 @@ const CHAMBER_COLORS = [
   "#9eb5d4",
 ];
 
-export function createChamberNetworkView(container, { onSelect } = {}) {
+export function createChamberNetworkView(container, { onSelect, onMixChange } = {}) {
   let selectedId = null;
   let model = null;
+  let mixUiState = null;
 
   container.innerHTML = `
     <div class="patch-network__empty">Analyze a shape to see the chamber network</div>
@@ -34,8 +35,9 @@ export function createChamberNetworkView(container, { onSelect } = {}) {
     drawWires();
   }
 
-  function render(modelData) {
+  function render(modelData, { mixState = null } = {}) {
     model = modelData;
+    mixUiState = mixState;
     if (!model?.chambers?.length) {
       emptyEl.hidden = false;
       stageEl.hidden = true;
@@ -55,29 +57,48 @@ export function createChamberNetworkView(container, { onSelect } = {}) {
         const purity = chamber.purity != null ? `${(chamber.purity * 100).toFixed(0)}%` : "—";
         const drift = chamber.driftHz != null ? `${chamber.driftHz.toFixed(2)} Hz` : "—";
         const thick = chamber.thickness != null ? chamber.thickness.toFixed(3) : "—";
+        const ui = mixState?.getUiState?.(chamber.id) ?? { enabled: true, silent: false };
+        const silentClass = ui.silent ? " patch-module--silent" : "";
+        const toggleClass = ui.enabled ? " patch-chamber-toggle--on" : " patch-chamber-toggle--off";
 
         return `
-          <button type="button" class="patch-module" data-chamber-id="${chamber.id}" style="--module-color: ${color}">
+          <div class="patch-module${silentClass}" data-chamber-id="${chamber.id}" style="--module-color: ${color}">
             <span class="patch-module__port patch-module__port--in" data-port="in"></span>
             <span class="patch-module__port patch-module__port--out" data-port="out"></span>
-            <span class="patch-module__title">${model.chambers.length === 1 ? "osc~" : "reson~"} ${chamber.id}</span>
-            <span class="patch-module__label">${chamber.label ?? `chamber ${chamber.id}`}</span>
+            <div class="patch-module__head">
+              <button type="button" class="patch-module__select">
+                <span class="patch-module__title">${model.chambers.length === 1 ? "osc~" : "reson~"} ${chamber.id}</span>
+                <span class="patch-module__label">${chamber.label ?? `chamber ${chamber.id}`}</span>
+              </button>
+              <button
+                type="button"
+                class="patch-chamber-toggle${toggleClass}"
+                aria-pressed="${ui.enabled}"
+                title="${ui.enabled ? "Enabled — click to disable" : "Disabled — click to enable"}"
+              >${ui.enabled ? "on" : "off"}</button>
+            </div>
             <span class="patch-module__row"><span>f₀</span><span>${freq} Hz</span></span>
             <span class="patch-module__row"><span>thick</span><span>${thick}</span></span>
             <span class="patch-module__row"><span>amp</span><span>${amp}</span></span>
             <span class="patch-module__row"><span>decay</span><span>${decay}</span></span>
             <span class="patch-module__row"><span>purity</span><span>${purity}</span></span>
             <span class="patch-module__row"><span>drift</span><span>${drift}</span></span>
-          </button>
+          </div>
         `;
       })
       .join("");
 
     modulesEl.querySelectorAll(".patch-module").forEach((el) => {
-      el.addEventListener("click", () => {
-        const id = Number(el.dataset.chamberId);
+      const id = Number(el.dataset.chamberId);
+
+      el.querySelector(".patch-module__select")?.addEventListener("click", () => {
         setSelected(id);
         onSelect?.(id);
+      });
+
+      el.querySelector(".patch-chamber-toggle")?.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        onMixChange?.(id);
       });
     });
 
@@ -107,10 +128,12 @@ export function createChamberNetworkView(container, { onSelect } = {}) {
       const stageRect = stageEl.getBoundingClientRect();
       const outRect = out.getBoundingClientRect();
       const inRect = inn.getBoundingClientRect();
+      const silent = mod.classList.contains("patch-module--silent");
       ports.set(id, {
         out: { x: outRect.left + outRect.width / 2 - stageRect.left, y: outRect.top + outRect.height / 2 - stageRect.top },
         in: { x: inRect.left + inRect.width / 2 - stageRect.left, y: inRect.top + inRect.height / 2 - stageRect.top },
         selected: id === selectedId,
+        silent,
       });
     });
 
@@ -126,7 +149,7 @@ export function createChamberNetworkView(container, { onSelect } = {}) {
         const cx = (x1 + x2) / 2;
         const active = a.selected || b.selected;
         const w = 1 + edge.coupling * 3;
-        const opacity = active ? 0.9 : 0.35 + edge.coupling * 0.4;
+        const opacity = a.silent || b.silent ? 0.12 : active ? 0.9 : 0.35 + edge.coupling * 0.4;
         return `<path d="M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}" fill="none" stroke="var(--resonance)" stroke-width="${w}" opacity="${opacity}" class="patch-wire${active ? " patch-wire--active" : ""}"/>`;
       })
       .join("");
