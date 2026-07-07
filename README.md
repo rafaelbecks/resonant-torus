@@ -1,4 +1,4 @@
-# Resonant Torus
+# Resonant Organism
 
 Playground for **morphogenesis** of torus and torus-knot shapes, with shape-based acoustic analysis and external sound-engine integration.
 
@@ -45,28 +45,6 @@ Analysis lives in `src/acoustics/shapeAnalysis.js`:
 - Deformed torus → **N chambers** chained around the ring
 
 Chamber markers appear as colored points inside each bulge. Click a marker or a **reson~** module to select that chamber and fly the camera to it (**Viewer → chamber zoom** adjusts distance).
-
-### Next steps (audio)
-
-- [ ] Decide primary runtime: SuperCollider, Pd, or in-browser Web Audio
-- [ ] Drive chamber params in real time when morph sliders change (bridge already sends on analyze)
-- [ ] Optional: continuous morph → throttled re-send (currently send-on-analyze only)
-- [ ] Spatial panning from chamber `position` / `ringAngle`
-
-## Payload example
-
-```json
-{
-  "type": "acoustic_model",
-  "shape": "torus",
-  "noiseMix": 1,
-  "timbre": { "purity": 0.55, "modulation": 0.45, "harmonicStack": "modulated" },
-  "synthesis": { "fundamentalHz": 62.5, "partials": [[1, 1, 0], [2, 0.35, 0.01]], "noiseAmount": 0.22 },
-  "chambers": [{ "id": 0, "frequency": 58.2, "amplitude": 0.4, "decay": 0.6, "position": [1.2, 0.3, 0] }],
-  "network": [{ "from": 0, "to": 1, "coupling": 0.12, "delayMs": 18 }],
-  "superCollider": { "cmd": "resonant_torus_update", "freq": 62.5, "partials": [], "chambers": [], "routes": [], "noise": 0.22 }
-}
-```
 
 
 ## License

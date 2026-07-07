@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "start": "serve . -p 9990",
-    "bridge": "node bridge/server.js"
+    "bridge": "node bridge/server.js",
+    "bridge:test": "node bridge/test-osc.js"
   },
   "author": "Rafael Becerra",
   "license": "MIT",
   "dependencies": {
+    "node-osc": "^11.6.0",
     "three": "^0.182.0",
     "tweakpane": "^4.0.5",
     "ws": "^8.18.0"
