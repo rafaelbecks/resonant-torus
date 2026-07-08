@@ -20,6 +20,7 @@ const SC_OSC_HOST = "127.0.0.1";
 /** Dedicated SC listener — see ResonantTorus.scd ~rtOscPort */
 const SC_OSC_PORT = 57124;
 const OSC_ADDRESS = "/resonant_torus/model";
+const OSC_TRIGGER_ADDRESS = "/resonant_torus/trigger";
 const MAX_OSC_BYTES = 60000;
 
 const browserWss = new WebSocketServer({ port: BROWSER_PORT });
@@ -41,6 +42,17 @@ function slimPayload(payload) {
     network: payload.network,
     superCollider: payload.superCollider,
   };
+}
+
+function sendTriggerToSuperCollider(payload) {
+  const json = JSON.stringify(payload);
+  oscClient.send(OSC_TRIGGER_ADDRESS, json, (err) => {
+    if (err) {
+      console.warn(`[bridge → sc trigger] ${err.message}`);
+    } else {
+      console.log(`[bridge → sc trigger] ${payload.action} note ${payload.note ?? "—"}`);
+    }
+  });
 }
 
 function sendToSuperCollider(payload) {
@@ -79,6 +91,11 @@ browserWss.on("connection", (ws) => {
     }
 
     const chambers = parsed.superCollider?.chambers?.length ?? parsed.chambers?.length ?? "?";
+    if (parsed.type === "note_trigger") {
+      console.log("[browser → sc trigger]", parsed.action, `note ${parsed.note ?? "—"}`);
+      sendTriggerToSuperCollider(parsed);
+      return;
+    }
     console.log("[browser → sc]", parsed.type ?? "message", `(chambers: ${chambers})`);
     sendToSuperCollider(parsed);
   });

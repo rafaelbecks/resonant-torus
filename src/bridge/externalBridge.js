@@ -100,6 +100,16 @@ export function createExternalBridge({ url = BRIDGE_DEFAULT_URL } = {}) {
     return send(payload);
   }
 
+  function sendNoteTrigger({ action, note, velocity }) {
+    return send({
+      type: "note_trigger",
+      action,
+      note,
+      velocity,
+      timestamp: Date.now(),
+    });
+  }
+
   function on(listener) {
     listeners.add(listener);
     return () => listeners.delete(listener);
@@ -110,6 +120,7 @@ export function createExternalBridge({ url = BRIDGE_DEFAULT_URL } = {}) {
     setUrl,
     send,
     sendAcousticModel,
+    sendNoteTrigger,
     isConnected: () => connected,
     on,
   };

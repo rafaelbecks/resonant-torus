@@ -6,7 +6,18 @@ import { morphParams } from "../morphogenesis/morphParams.js";
  */
 export function buildAcousticModel(
   analysis,
-  { noiseMix = 0, shape = morphParams.shape, pitchMultiplier = 1, chamberGates = null, bedsGate = 1 } = {}
+  {
+    noiseMix = 0,
+    shape = morphParams.shape,
+    pitchMultiplier = 1,
+    chamberGates = null,
+    bedsGate = 1,
+    playMode = "drone",
+    envAttack = 0.02,
+    envDecay = 0.1,
+    envSustain = 0.75,
+    envRelease = 0.45,
+  } = {}
 ) {
   const { timbre, chambers, network } = analysis;
   const isPureOscillator = chambers.length === 1 && timbre.harmonicStack === "perfect";
@@ -82,7 +93,8 @@ export function buildAcousticModel(
       routes,
       noiseMix,
       chamberGates,
-      bedsGate
+      bedsGate,
+      { playMode, envAttack, envDecay, envSustain, envRelease }
     ),
   };
 }
@@ -134,10 +146,24 @@ function buildPartials(timbre, noiseMix, chamberCount, isPureOscillator) {
   return partials;
 }
 
-function toSuperColliderPayload(fundamental, partials, chambers, routes, noiseMix, chamberGates, bedsGate = 1) {
+function toSuperColliderPayload(
+  fundamental,
+  partials,
+  chambers,
+  routes,
+  noiseMix,
+  chamberGates,
+  bedsGate = 1,
+  playback = {}
+) {
   return {
     cmd: "resonant_torus_update",
     freq: fundamental,
+    playMode: playback.playMode === "trigger" ? 1 : 0,
+    envAttack: playback.envAttack ?? 0.02,
+    envDecay: playback.envDecay ?? 0.1,
+    envSustain: playback.envSustain ?? 0.75,
+    envRelease: playback.envRelease ?? 0.45,
     partials: partials.map((p) => [p.harmonic, p.amplitude, p.detune]),
     bedsGate,
     chambers: chambers.map((c) => ({

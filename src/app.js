@@ -14,6 +14,7 @@ import { createToolsPanel } from "./ui/toolsPanel.js";
 import { initPanelResize } from "./ui/panelResize.js";
 import { createCameraFocus } from "./scene/cameraFocus.js";
 import { morphParams } from "./morphogenesis/morphParams.js";
+import { midiNoteToPitchMultiplier } from "./midi/notePitch.js";
 
 export async function bootApp() {
   const loading = createLoading();
@@ -85,9 +86,7 @@ export async function bootApp() {
     },
     onChamberMixChange: (model) => {
       syncChamberGraph(model);
-      if (toolsPanel?.bridgeParams?.autoSend && externalBridge.isConnected() && model) {
-        externalBridge.sendAcousticModel(model);
-      }
+      sendModelIfConnected(model);
     },
   });
 
@@ -111,6 +110,28 @@ export async function bootApp() {
 
   const externalBridge = createExternalBridge();
 
+  function playbackOptions() {
+    return {
+      playMode: params.playMode,
+      envAttack: params.envAttack,
+      envDecay: params.envDecay,
+      envSustain: params.envSustain,
+      envRelease: params.envRelease,
+    };
+  }
+
+  function sendModelIfConnected(model) {
+    if (toolsPanel?.bridgeParams?.autoSend && externalBridge.isConnected() && model) {
+      externalBridge.sendAcousticModel(model);
+    }
+  }
+
+  function sendTriggerIfConnected(action, note, velocity) {
+    if (!externalBridge.isConnected()) return;
+    if (params.playMode !== "trigger") return;
+    externalBridge.sendNoteTrigger({ action, note, velocity });
+  }
+
   externalBridge.on((event) => {
     if (event !== "connected") return;
     if (!toolsPanel?.bridgeParams?.autoSend) return;
@@ -132,6 +153,7 @@ export async function bootApp() {
       noiseEnabled: morphParams.noiseEnabled,
       shape: morphParams.shape,
       pitchMultiplier: params.pitchMultiplier,
+      ...playbackOptions(),
     });
 
     chamberPicker.updateFromAnalysis(acousticPanel.getAnalysis());
@@ -142,7 +164,7 @@ export async function bootApp() {
     syncChamberGraph(model);
 
     if (toolsPanel?.bridgeParams?.autoSend && externalBridge.isConnected()) {
-      externalBridge.sendAcousticModel(model);
+      sendModelIfConnected(model);
     }
 
     return model;
@@ -221,13 +243,35 @@ export async function bootApp() {
     }, 150);
   }
 
-  function applyPitchMultiplier() {
-    const model = acousticPanel.rebuildModel({ pitchMultiplier: params.pitchMultiplier });
+  function applyPitchMultiplier(pitchMultiplier = params.pitchMultiplier) {
+    const model = acousticPanel.rebuildModel({
+      pitchMultiplier,
+      ...playbackOptions(),
+    });
     syncChamberGraph(model);
-    if (toolsPanel?.bridgeParams?.autoSend && externalBridge.isConnected() && model) {
-      externalBridge.sendAcousticModel(model);
-    }
+    sendModelIfConnected(model);
     return model;
+  }
+
+  function applyPlaybackSettings() {
+    return applyPitchMultiplier(params.pitchMultiplier);
+  }
+
+  function handleMidiNoteOn({ note, velocity }) {
+    if (!toolsPanel?.midiParams?.enabled) return;
+
+    const multiplier = midiNoteToPitchMultiplier(note);
+    params.pitchMultiplier = multiplier;
+    toolsPanel.refreshPitch?.();
+
+    const model = applyPitchMultiplier(multiplier);
+    sendTriggerIfConnected("noteOn", note, velocity);
+    return model;
+  }
+
+  function handleMidiNoteOff({ note, velocity }) {
+    if (!toolsPanel?.midiParams?.enabled) return;
+    sendTriggerIfConnected("noteOff", note, velocity);
   }
 
   toolsPanel = createToolsPanel({
@@ -237,6 +281,9 @@ export async function bootApp() {
     externalBridge,
     onAnalyze: () => runAnalysis(),
     onPitchChange: () => applyPitchMultiplier(),
+    onPlaybackChange: () => applyPlaybackSettings(),
+    onMidiNoteOn: handleMidiNoteOn,
+    onMidiNoteOff: handleMidiNoteOff,
     onCopyForSuperCollider: () => copyModelForSuperCollider(),
     onEnvironmentChange: async () => {
       await toolsPanel.applyEnvironment();
