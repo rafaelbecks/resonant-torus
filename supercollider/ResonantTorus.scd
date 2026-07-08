@@ -3,7 +3,7 @@ Resonant Torus — SuperCollider physical-model engine
 
 Setup:
   1. Evaluate this file (Cmd+Enter)
-  2. Default output: Soundflower (fallback BlackHole, then system default)
+  2. Default output: Soundflower (fallback BlackHole); input via GUI Audio I/O
   3. npm run bridge  +  browser Tools → External bridge → connect
 
 OSC: /resonant_torus/model  <json>  on UDP 57124
