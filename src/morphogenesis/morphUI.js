@@ -22,8 +22,8 @@ function isMinimalShape(shape) {
   return MINIMAL_SHAPES.includes(shape);
 }
 
-export function setupMorphUI(pane, morphSystem, onChange) {
-  const folder = pane.addFolder({ title: "Morphogenesis", expanded: true });
+export function setupMorphUI(container, morphSystem, onChange) {
+  const folder = container;
 
   const shapeFolders = {};
 

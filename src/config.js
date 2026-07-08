@@ -57,6 +57,12 @@ export const params = {
   autoAnalyze: true,
   chamberFocusDistance: 1.15,
   pitchMultiplier: 1,
+  playMode: "drone",
+  envAttack: 0.02,
+  envDecay: 0.1,
+  envSustain: 0.75,
+  envRelease: 0.45,
+  webMidiEnabled: false,
 };
 
 export const CAMERA_INTRO = {
