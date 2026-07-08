@@ -141,12 +141,18 @@ State in ~rt; functions at top level (SC Event literals break on nested calls).
 		exciterType: 0,
 		exciterLevel: 0.22,
 		exciterRate: 1.8,
+		inputChannel: 0,
 		partialsMix: 0,
 		chamberMix: 0.68,
 		noiseMix: 0,
 		chamberMode: 0,
+		playMode: 0,
+		envAttack: 0.02,
+		envDecay: 0.1,
+		envSustain: 0.75,
+		envRelease: 0.45,
 	),
-	exciterTypes: [\pink, \dust, \noise],
+	exciterTypes: [\pink, \dust, \noise, \audioIn],
 	chamberModes: if(~rtHasMembrane) {
 		[\tube, \modal, \waveguide, \membrane, \multimodal]
 	} {
@@ -204,6 +210,7 @@ State in ~rt; functions at top level (SC Event literals break on nested calls).
 		model[\shape] = ~rtJsonField.(data, \shape, "unknown");
 		model[\timestamp] = ~rtJsonGet.(data, \timestamp);
 		model[\timbre] = ~rtJsonGet.(data, \timbre);
+		~rtApplyPlaybackFromSc.(sc);
 		~rtClampModel.(model);
 	};
 };
@@ -262,14 +269,14 @@ State in ~rt; functions at top level (SC Event literals break on nested calls).
 			\type, ~rtExciterTypeIndex.value,
 			\level, ctrl.exciterLevel,
 			\rate, ctrl.exciterRate,
-			\freq, model[\freq]
+			\freq, model[\freq],
+			\inChan, ctrl.inputChannel.asInteger
 		]);
 		if(n > 0) {
 			sc[\exciterInject] = Synth.tail(~rt.synthGroup, \rt_exciterInject, [
 				\exciterBus, ~rt.buses[\exciter].index,
 				\chamberBus, ~rt.buses[\chamberIn][0].index,
-				\level, 1.0
-			]);
+			] ++ ~rtExciterInjectArgs.value);
 		};
 		sc[\chambers] = List.new;
 		model[\chambers].do { |ch, idx|
@@ -370,7 +377,8 @@ State in ~rt; functions at top level (SC Event literals break on nested calls).
 		~rt.model = model;
 		~rt.synths[\exciter] !? { |x|
 			x.set(\freq, model[\freq], \type, ~rtExciterTypeIndex.value,
-				\level, ~rt.controls.exciterLevel, \rate, ~rt.controls.exciterRate);
+				\level, ~rt.controls.exciterLevel, \rate, ~rt.controls.exciterRate,
+				\inChan, ~rt.controls.inputChannel.asInteger);
 		};
 		model[\chambers].do { |ch, i|
 			var thickAmp = ~rtJsonNum.(ch[\amp], 0.5).clip(0, 1)
@@ -422,6 +430,7 @@ State in ~rt; functions at top level (SC Event literals break on nested calls).
 				\partialMix, ~rt.controls.partialsMix,
 				\noiseMix, ~rt.controls.noiseMix);
 		};
+		~rt.synths[\exciterInject] !? { |x| x.set(*(~rtExciterInjectArgs.value)) };
 		"▸ RT smooth update (% chambers)".format(n).postln;
 	} {
 		~rtBuildGraph.(model);
@@ -446,15 +455,66 @@ State in ~rt; functions at top level (SC Event literals break on nested calls).
 	model;
 };
 
-~rtTrigger = {
-	// no-op (legacy OSC / GUI hook)
+~rtApplyPlaybackFromSc = { |sc|
+	if(sc.isNil) { ^nil };
+	~rt.controls.playMode = ~rtJsonNum.(~rtJsonField.(sc, \playMode, ~rt.controls.playMode), 0).clip(0, 1);
+	~rt.controls.envAttack = ~rtJsonNum.(~rtJsonField.(sc, \envAttack, ~rt.controls.envAttack), 0.02).clip(0.001, 2);
+	~rt.controls.envDecay = ~rtJsonNum.(~rtJsonField.(sc, \envDecay, ~rt.controls.envDecay), 0.1).clip(0.001, 2);
+	~rt.controls.envSustain = ~rtJsonNum.(~rtJsonField.(sc, \envSustain, ~rt.controls.envSustain), 0.75).clip(0, 1);
+	~rt.controls.envRelease = ~rtJsonNum.(~rtJsonField.(sc, \envRelease, ~rt.controls.envRelease), 0.45).clip(0.001, 4);
+};
+
+~rtExciterInjectArgs = {
+	var ctrl = ~rt.controls;
+	[
+		\level, 1.0,
+		\gate, if(ctrl.playMode > 0.5) { 0 } { 1 },
+		\attack, ctrl.envAttack,
+		\decay, ctrl.envDecay,
+		\sustain, ctrl.envSustain,
+		\release, ctrl.envRelease,
+		\playMode, ctrl.playMode.clip(0, 1)
+	];
+};
+
+~rtTriggerNoteOn = { |note, vel|
+	var level;
+	if(~rt.controls.playMode <= 0.5) { ^nil };
+	level = (~rtJsonNum.(vel, 100) / 127).clip(0.05, 1);
+	~rt.synths[\exciterInject] !? { |x|
+		x.set(*(~rtExciterInjectArgs.value));
+		x.set(\level, level, \gate, 0);
+		x.set(\gate, 1);
+	};
+	"▸ RT trigger on  note %  vel %".format(
+		~rtJsonNum.(note, 60).asInteger,
+		~rtJsonNum.(vel, 100).asInteger
+	).postln;
+};
+
+~rtTriggerNoteOff = { |note|
+	if(~rt.controls.playMode <= 0.5) { ^nil };
+	~rt.synths[\exciterInject] !? { |x| x.set(\gate, 0) };
+	"▸ RT trigger off note %".format(~rtJsonNum.(note, 60).asInteger).postln;
+};
+
+~rtTrigger = { |data|
+	var action, note, vel;
+	if(data.isNil) { ^nil };
+	action = (~rtJsonField.(data, \action, "noteOn")).asString.toLower;
+	note = ~rtJsonNum.(~rtJsonField.(data, \note, 60), 60).asInteger;
+	vel = ~rtJsonNum.(~rtJsonField.(data, \velocity, 100), 100);
+	case
+		{ action == "noteon" } { ~rtTriggerNoteOn.(note, vel) }
+		{ action == "noteoff" } { ~rtTriggerNoteOff.(note) };
 };
 
 ~rtSetControl = { |key, val|
 	~rt.controls[key] = val;
 	~rt.synths[\exciter] !? { |x|
 		x.set(\type, ~rtExciterTypeIndex.value, \level, ~rt.controls.exciterLevel,
-			\rate, ~rt.controls.exciterRate);
+			\rate, ~rt.controls.exciterRate,
+			\inChan, ~rt.controls.inputChannel.asInteger);
 	};
 	~rt.synths[\master] !? { |x|
 		x.set(\chamberMix, ~rt.controls.chamberMix,
@@ -463,6 +523,9 @@ State in ~rt; functions at top level (SC Event literals break on nested calls).
 	};
 	if((key == \chamberMode) and: { ~rt.synths[\chambers].notNil }) {
 		~rt.synths[\chambers].do { |x| x.set(\mode, ~rtChamberModeIndex.value) };
+	};
+	if([\playMode, \envAttack, \envDecay, \envSustain, \envRelease].includes(key)) {
+		~rt.synths[\exciterInject] !? { |x| x.set(*(~rtExciterInjectArgs.value)) };
 	};
 };
 

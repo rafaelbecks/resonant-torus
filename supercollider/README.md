@@ -15,10 +15,10 @@ npm start         # terminal 2 → http://localhost:9990
 
 1. Open SuperCollider IDE
 2. Evaluate **`ResonantTorus.scd`** (whole file — loads libs via `~rtStartup`)
-3. Tools → **External bridge** → connect + auto send
-4. Analyze / morph shapes in the browser
+3. Tools → **Acoustics & Sound** → **External bridge** → connect + auto send
+4. Analyze / morph shapes in the browser (optional: **WebMIDI** for live pitch + trigger play)
 
-OSC: `/resonant_torus/model` on UDP **57124** (bridge WS **57120**).
+OSC: `/resonant_torus/model` and `/resonant_torus/trigger` on UDP **57124** (bridge WS **57120**).
 
 Test without browser: `npm run bridge:test`
 
@@ -35,13 +35,16 @@ Browser ──ws:57120──► bridge ──OSC/57124──► SuperCollider
 ```
 
 **Defaults:** pink exciter, tube chamber mode, partials/noise mix 0.  
-**Output:** Soundflower (fallback BlackHole) — change in GUI → Apply, or `~rtRebootAudio.value`.
+**Output:** Soundflower (fallback BlackHole) — GUI **Audio I/O** → Apply, or `~rtRebootAudio.value`.  
+**Input:** pick device in GUI; exciter **audioIn** routes hardware input through chambers.
 
 ## Browser ↔ SC
 
 | Browser | Payload |
 |---------|---------|
-| Pitch multiplier (Tools → Acoustics) | scales `freq` / chamber freqs |
+| Pitch multiplier (Acoustics & Sound → Acoustics) | scales `freq` / chamber freqs |
+| WebMIDI note on | pitch mult from interval vs C3; optional `note_trigger` OSC |
+| Playback mode `trigger` + ADSR | exciter envelope on MIDI note on/off |
 | Chamber toggles (network view) | `chambers[].gate` (0/1) |
 | Analyze shape | full rebuild; toggles reset |
 | Pitch-only rebuild | topology kept, gates preserved |
@@ -50,7 +53,8 @@ Engine clamps heavy shapes: **max 8 chambers**, freqs **40–1200 Hz**, capped l
 
 ## GUI
 
-Exciter: **pink** / dust / noise  
+Exciter: **pink** / dust / noise / **audioIn**  
+Playback: **drone** (continuous) / **trigger** (ADSR envelope on MIDI)  
 Chamber mode: **tube** / modal / waveguide / membrane / multimodal  
 Mix sliders: chambers / partials / noise bed
 

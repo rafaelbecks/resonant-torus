@@ -9,6 +9,7 @@ Call ~rtShowGui.value from any thread (schedules on AppClock).
 	exciterMenu: nil,
 	modeMenu: nil,
 	deviceMenu: nil,
+	inputDeviceMenu: nil,
 );
 
 ~rtGuiClose = {
@@ -23,14 +24,15 @@ Call ~rtShowGui.value from any thread (schedules on AppClock).
 };
 
 ~rtGuiBuild = {
-	var w, ctrl, margin = 12, row = 0, lbl, slider, summary, exciterIdx, modeIdx, devices, devIdx;
+	var w, ctrl, margin = 12, row = 0, lbl, slider, summary, exciterIdx, modeIdx;
+	var devices, inDevices, devIdx, inDevIdx;
 	if(~rt.isNil or: { ~rt[\controls].isNil }) {
 		"RT GUI: engine not loaded — evaluate ResonantTorus.scd".warn;
 	} {
 		~rtGuiClose.value;
 		ctrl = ~rt.controls;
 
-		w = Window("Resonant Torus — chamber network", Rect(80, 80, 420, 700))
+		w = Window("Resonant Torus — chamber network", Rect(80, 80, 420, 860))
 			.front
 			.onClose_({ ~rtGui.window = nil });
 
@@ -40,21 +42,29 @@ Call ~rtShowGui.value from any thread (schedules on AppClock).
 
 		row = 36;
 		StaticText(w, Rect(margin, row, 380, 18))
-			.string_("Audio output")
+			.string_("Audio I/O")
 			.font_(Font.default.bold_(true));
 		row = row + 22;
 		lbl = { |y, text| StaticText(w, Rect(margin, y, 120, 20)).string_(text).align_(\left) };
-		lbl.value(row, "Device");
+		lbl.value(row, "Output");
 		devices = ~rtListOutputDevices.value;
 		devIdx = devices.indexOf(~rtCurrentOutputDevice.value) ? 0;
 		~rtGui.deviceMenu = PopUpMenu(w, Rect(130, row, 250, 22))
 			.items_(devices)
 			.value_(devIdx)
 			.action_({ |m| ~rtSetOutputDevice.(devices[m.value]) });
+		row = row + 28;
+		lbl.value(row, "Input");
+		inDevices = ~rtListInputDevices.value;
+		inDevIdx = inDevices.indexOf(~rtCurrentInputDevice.value) ? 0;
+		~rtGui.inputDeviceMenu = PopUpMenu(w, Rect(130, row, 250, 22))
+			.items_(inDevices)
+			.value_(inDevIdx)
+			.action_({ |m| ~rtSetInputDevice.(inDevices[m.value]) });
 		Button(w, Rect(margin + 340, row, 56, 22))
 			.states_([["Apply", Color.black, Color.gray(0.85)]])
 			.action_({ ~rtRebootAudio.value });
-		row = row + 32;
+		row = row + 36;
 
 		slider = { |y, key, lo, hi, label|
 			var st = StaticText(w, Rect(300, y, 90, 20)).string_("").align_(\right);
@@ -89,8 +99,36 @@ Call ~rtShowGui.value from any thread (schedules on AppClock).
 			});
 		row = row + 28;
 
+		lbl.value(row, "In ch");
+		PopUpMenu(w, Rect(130, row, 80, 22))
+			.items_(["0", "1"])
+			.value_(ctrl.inputChannel.asInteger.clip(0, 1))
+			.action_({ |m|
+				ctrl.inputChannel = m.value;
+				~rtSetControl.(\inputChannel, m.value);
+			});
+		row = row + 28;
+
 		slider.value(row, \exciterLevel, 0, 1, "Level"); row = row + 26;
 		slider.value(row, \exciterRate, 0.2, 20, "Rate"); row = row + 30;
+
+		StaticText(w, Rect(margin, row, 380, 18))
+			.string_("Playback")
+			.font_(Font.default.bold_(true));
+		row = row + 22;
+		lbl.value(row, "Mode");
+		PopUpMenu(w, Rect(130, row, 160, 22))
+			.items_(["drone", "trigger"])
+			.value_(ctrl.playMode.asInteger.clip(0, 1))
+			.action_({ |m|
+				ctrl.playMode = m.value;
+				~rtSetControl.(\playMode, m.value);
+			});
+		row = row + 28;
+		slider.value(row, \envAttack, 0.001, 2, "Attack"); row = row + 26;
+		slider.value(row, \envDecay, 0.001, 2, "Decay"); row = row + 26;
+		slider.value(row, \envSustain, 0, 1, "Sustain"); row = row + 26;
+		slider.value(row, \envRelease, 0.001, 4, "Release"); row = row + 30;
 
 		StaticText(w, Rect(margin, row, 380, 18))
 			.string_("Mix")

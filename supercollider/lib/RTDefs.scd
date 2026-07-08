@@ -13,17 +13,23 @@ if(~rtHasMembrane) {
 };
 
 // --- Exciter (injection into the network) ---
-SynthDef(\rt_exciter, { |out=0, type=0, level=0.3, rate=2, freq=65|
-	var t = type.clip(0, 2);
+SynthDef(\rt_exciter, { |out=0, type=0, level=0.3, rate=2, freq=65, inChan=0|
+	var t = type.clip(0, 3);
 	var pink = PinkNoise.ar(level * 0.4);
 	var dust = Dust.ar(rate.clip(0.1, 40)) * level * 3;
 	var noise = WhiteNoise.ar(level * 0.35);
-	var sig = Select.ar(t, [pink, dust, noise]);
+	var audioIn = LeakDC.ar(SoundIn.ar(inChan.clip(0, 15), 1)) * level.clip(0, 1);
+	var sig = Select.ar(t, [pink, dust, noise, audioIn]);
 	Out.ar(out, LeakDC.ar(sig));
 }).add;
 
-SynthDef(\rt_exciterInject, { |exciterBus, chamberBus, level=1|
-	Out.ar(chamberBus, In.ar(exciterBus, 1) * level.clip(0, 1));
+SynthDef(\rt_exciterInject, { |exciterBus, chamberBus, level=1, gate=1, attack=0.02, decay=0.1, sustain=0.75, release=0.45, playMode=0|
+	var exc = In.ar(exciterBus, 1);
+	var env = Select.kr(playMode.clip(0, 1), [
+		1,
+		EnvGen.kr(Env([0, 1, sustain, 0], [attack, decay, release], \exp), gate, doneAction: 0)
+	]);
+	Out.ar(chamberBus, exc * level.clip(0, 1) * env);
 }).add;
 
 SynthDef(\rt_partial, { |out=0, freq=440, amp=0.1, detune=0, gate=1|

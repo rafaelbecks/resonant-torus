@@ -43,14 +43,21 @@ Address: /resonant_torus/model  <json string>
 		}, "/resonant_torus/model", nil, ~rtOscPort);
 
 		OSCdef(\rt_trigger, { |msg|
-			{ ~rtTrigger.value }.defer;
+			var json, data;
+			try {
+				json = msg[1].asString;
+				data = json.parseJSON;
+				{ ~rtTrigger.(data) }.defer;
+			} { |err|
+				"RT OSC trigger error: %".format(err.errorString).postln;
+			};
 		}, "/resonant_torus/trigger", nil, ~rtOscPort);
 
 		OSCdef(\rt_server_down, { |msg|
 			"RT: scsynth exited — re-evaluate ResonantTorus.scd".warn;
 		}, '/quit', s.addr);
 
-		"RT listening on UDP % — /resonant_torus/model".format(~rtOscPort).postln;
+		"RT listening on UDP % — /resonant_torus/model, /resonant_torus/trigger".format(~rtOscPort).postln;
 	},
 
 	free: {
