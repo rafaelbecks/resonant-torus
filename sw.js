@@ -1,18 +1,16 @@
-const CACHE = "resonant-organisms-v1";
+/** Offline fallback only — always prefer the network when online. */
+const CACHE = "resonant-organisms-v2";
 
-const SHELL = [
+const OFFLINE_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./manifest.json",
-  "./icons/resonant192.png",
-  "./icons/resonant512.png",
-  "./src/main.js",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE).then((cache) => cache.addAll(OFFLINE_SHELL)).then(() => self.skipWaiting())
   );
 });
 
@@ -20,11 +18,13 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
-      )
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {
@@ -35,14 +35,14 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        if (!response.ok || response.type === "opaque") return response;
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy));
+    fetch(request)
+      .then((response) => {
+        if (response.ok && request.mode === "navigate") {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy));
+        }
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(request))
   );
 });
