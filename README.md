@@ -1,10 +1,18 @@
-# Resonant Organism
+# Resonant Organisms
 
-Playground for **morphogenesis** of torus and torus-knot shapes, with shape-based acoustic analysis and external sound-engine integration.
+![Resonant Organisms](./SCREENSHOT.png)
 
-A pure torus is treated as a single harmonic cavity — sine-like, high purity. Noise deformation creates bulges along the ring; each thick lump becomes a **resonance chamber** linked in a serial chain (connection tubes = narrow necks between lumps). The bottom panel shows a Pd-style patch network (`osc~` for one chamber, `reson~` per lump) and maps geometry to synthesis parameters.
+Interactive playground for **morphogenesis** of torus and minimal-surface shapes, with geometry-driven acoustic analysis and optional SuperCollider synthesis.
 
-## Quick start
+Deform a shape with noise → bulges become **resonance chambers** linked in a serial chain. The bottom panel shows a Pd-style patch (`osc~` / `reson~`) mapping geometry to synthesis parameters.
+
+## Inspiration
+
+- **[Chavín de Huántar](https://ccrma.stanford.edu/groups/chavin/)** — Andean ceremonial galleries as a coupled network of resonance alcoves linked by narrow ducts; [CCRMA’s waveguide model](https://doi.org/10.1121/1.3508227) of the site’s “resonance rooms connected by sound transmission tubes”
+- **[Joaquín Orellana](https://www.youtube.com/@JoaquinOrellanaylaUtileriaSono)** — *útiles sonoros*: sculptural instruments derived from the marimba, built to evoke electronic and imagined timbres
+- **[Baschet brothers](https://baschet.org/site/)** — *structures sonores*: folded-metal sculptures with conical resonators and diffusers, form and timbre inseparable ([Baschet Sound Structures Association](https://baschet.org/site/index.php/the-baschet-story/))
+
+## Run
 
 ```bash
 npm install
@@ -13,39 +21,21 @@ npm start
 
 Open [http://localhost:9990](http://localhost:9990)
 
-## Layout
+**With audio** — see [supercollider/README.md](supercollider/README.md):
 
-| Area | Purpose |
-|------|---------|
-| **Viewer (left)** | Three.js mesh, chamber markers, orbit + WASD walk |
-| **Tools (right)** | Tweakpane — morphogenesis, viewer, acoustics, bridge |
-| **Acoustics (bottom)** | Chamber network patch, summary metrics, chamber detail |
+```bash
+npm run bridge   # terminal 1
+npm start        # terminal 2
+```
 
-Drag the **vertical handle** on the tools panel edge to resize width. Drag the **horizontal handle** on the acoustics panel top edge to resize height. The acoustics body scrolls vertically when content overflows.
+Evaluate `supercollider/ResonantTorus.scd` in the SuperCollider IDE, then connect via **Tools → Acoustics & Sound → External bridge**.
 
-## Morphogenesis
 
-1. Pick **torus**, **torus knot**, or a **minimal surface** (Costa, Chen–Gackstätter, López–Ros)
-2. Tune extent, segments, and shape-specific parameters (folders appear only for the active shape)
-2. Enable **Noise deformation** to bulge the surface along vertex normals
-3. With **auto analyze** on (Acoustics folder), any Tweakpane morph change re-runs shape analysis after a short debounce
-4. Click **Analyze shape** for a manual run
-5. **Export GLB + JSON** bakes the current form + parameter snapshot
-
-Exported GLB/JSON pairs can be archived under `glb/` for reuse in other tools.
-
-## Shape analysis
-
-Analysis lives in `src/acoustics/shapeAnalysis.js`:
-
-- Samples the mesh ring (UV.u bins around the torus)
-- Measures **outward bulge** vs the base shape along base normals
-- Finds lump peaks and splits at thickness valleys
-- Pure / uniform torus → **1 chamber**, `osc~`, high purity
-- Deformed torus → **N chambers** chained around the ring
-
-Chamber markers appear as colored points inside each bulge. Click a marker or a **reson~** module to select that chamber and fly the camera to it (**Viewer → chamber zoom** adjusts distance).
-
+**Stack**
+- [Three.js](https://threejs.org/) — 3D viewer
+- [Tweakpane](https://tweakpane.github.io/docs/) — parameter UI
+- [SuperCollider](https://supercollider.github.io/) — exciter-driven chamber network (tube resonators + waveguide links)
+- [Web MIDI API](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API) — live pitch and trigger
 
 ## License
 
