@@ -33,7 +33,7 @@ export function createToolsPanel({
   const soundTab = tab.pages[1];
   const viewTab = tab.pages[2];
 
-  setupMorphUI(morphTab, morphSystem, () => {
+  const morphUiReady = setupMorphUI(morphTab, morphSystem, () => {
     onRefresh?.();
   });
 
@@ -382,6 +382,7 @@ export function createToolsPanel({
     pane,
     bridgeParams,
     midiParams,
+    ready: morphUiReady,
     refreshPitch: () => pitchBinding.refresh(),
     applyEnvironment,
   };

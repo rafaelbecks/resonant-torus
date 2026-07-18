@@ -288,15 +288,16 @@ export async function bootApp() {
     onEnvironmentChange: async () => {
       await toolsPanel.applyEnvironment();
     },
-    onRefresh: () => {
-      morphSystem.sync();
+    onRefresh: async () => {
+      await morphSystem.sync();
       scheduleAnalysis();
     },
     onChamberGraphChange: () => syncChamberGraph(),
   });
 
+  await toolsPanel.ready;
   await toolsPanel.applyEnvironment();
-  morphSystem.sync();
+  await morphSystem.sync();
   await runAnalysis();
 
   const clock = { elapsed: 0 };

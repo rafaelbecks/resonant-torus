@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { morphParams } from "./morphParams.js";
 import { createMorphGeometry, getMorphSide } from "./morphGeometries.js";
 import {
@@ -29,6 +31,7 @@ const EXPORT_PARAM_KEYS = [
   "lopezRosMode",
   "lopezRosStackCount",
   "lopezRosStackSpacing",
+  "modelFile",
   "noiseAmplitude",
   "noiseScale",
   "noiseSeed",
@@ -52,11 +55,57 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+function createGlbLoader() {
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath(
+    "https://www.gstatic.com/draco/versioned/decoders/1.5.7/"
+  );
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+  return loader;
+}
+
+function extractFirstMeshGeometry(root) {
+  let source = null;
+  root.updateMatrixWorld(true);
+  root.traverse((o) => {
+    if (o.isMesh && o.geometry && !source) source = o;
+  });
+  if (!source) return null;
+
+  const geometry = source.geometry.clone();
+  geometry.applyMatrix4(source.matrixWorld);
+  if (!geometry.attributes.normal) geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  return geometry;
+}
+
+function fitModelGeometry(geometry, extent, envelopeRadius) {
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+  geometry.translate(-center.x, -center.y, -center.z);
+
+  const maxDim = Math.max(size.x, size.y, size.z, 1e-6);
+  const target = Math.max(0.5, extent) * Math.max(0.3, envelopeRadius);
+  const scale = target / maxDim;
+  geometry.scale(scale, scale, scale);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
 export function createMorphSystem({ scene, params: viewerParams }) {
   let mesh = null;
   let builtKey = null;
   let noiseMix = 0;
   let elapsed = 0;
+  let loadId = 0;
+  const glbLoader = createGlbLoader();
+  const geometryCache = new Map();
 
   function createMaterial() {
     return new THREE.MeshStandardMaterial({
@@ -68,12 +117,7 @@ export function createMorphSystem({ scene, params: viewerParams }) {
     });
   }
 
-  function rebuildGeometry(force = false) {
-    const key = geometryConfigKey();
-    if (!force && mesh && builtKey === key) return;
-
-    const geometry = createMorphGeometry(morphParams.shape, morphParams.extent, morphParams);
-
+  function assignGeometry(geometry) {
     if (mesh) {
       mesh.geometry.dispose();
       mesh.geometry = geometry;
@@ -86,8 +130,67 @@ export function createMorphSystem({ scene, params: viewerParams }) {
 
     captureBaseGeometry(mesh.geometry);
     applyNoiseDeform(mesh.geometry, morphParams, noiseMix, elapsed);
-    builtKey = key;
     updateTransform();
+  }
+
+  function loadModelGeometry(modelFile) {
+    const cached = geometryCache.get(modelFile);
+    if (cached) {
+      return Promise.resolve(
+        fitModelGeometry(
+          cached.clone(),
+          morphParams.extent,
+          morphParams.envelopeRadius
+        )
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      glbLoader.load(
+        `./glb/${modelFile}.glb`,
+        (gltf) => {
+          const extracted = extractFirstMeshGeometry(gltf.scene);
+          if (!extracted) {
+            reject(new Error(`No mesh in ${modelFile}.glb`));
+            return;
+          }
+          geometryCache.set(modelFile, extracted);
+          resolve(
+            fitModelGeometry(
+              extracted.clone(),
+              morphParams.extent,
+              morphParams.envelopeRadius
+            )
+          );
+        },
+        undefined,
+        reject
+      );
+    });
+  }
+
+  async function rebuildGeometry(force = false) {
+    const key = geometryConfigKey();
+    if (!force && mesh && builtKey === key) return;
+
+    if (morphParams.shape === "model") {
+      const id = ++loadId;
+      const modelFile = morphParams.modelFile || "cosos/pututu";
+      try {
+        const geometry = await loadModelGeometry(modelFile);
+        if (id !== loadId) return;
+        assignGeometry(geometry);
+        builtKey = key;
+      } catch (err) {
+        if (id !== loadId) return;
+        console.error("[morph] failed to load model", modelFile, err);
+      }
+      return;
+    }
+
+    const geometry = createMorphGeometry(morphParams.shape, morphParams.extent, morphParams);
+    assignGeometry(geometry);
+    builtKey = key;
   }
 
   function updateTransform() {
@@ -109,8 +212,8 @@ export function createMorphSystem({ scene, params: viewerParams }) {
     builtKey = null;
   }
 
-  function sync() {
-    rebuildGeometry();
+  async function sync() {
+    await rebuildGeometry();
     if (mesh) {
       mesh.material.color.set(morphParams.color);
       mesh.material.roughness = viewerParams.roughness;
@@ -168,7 +271,10 @@ export function createMorphSystem({ scene, params: viewerParams }) {
     if (!mesh) return { ok: false, reason: "No morphogenesis mesh." };
 
     const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const baseName = `${morphParams.shape}-noise-${stamp}`;
+    const baseName =
+      morphParams.shape === "model"
+        ? `${(morphParams.modelFile || "model").replace(/\//g, "-")}-noise-${stamp}`
+        : `${morphParams.shape}-noise-${stamp}`;
     const config = {
       version: 1,
       type: "morphogenesis",

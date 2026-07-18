@@ -3,6 +3,7 @@ export const MORPH_SHAPES = [
   "torusknot",
   "chenGackstatter",
   "lopezros",
+  "model",
 ];
 
 export const SHAPE_LABELS = {
@@ -10,10 +11,12 @@ export const SHAPE_LABELS = {
   torusknot: "torus knot",
   chenGackstatter: "Chen–Gackstätter",
   lopezros: "López–Ros",
+  model: "model",
 };
 
 export const morphParams = {
   shape: "torus",
+  modelFile: "cosos/pututu",
   extent: 3,
   shapeSegments: 128,
   envelopeRadius: 1,

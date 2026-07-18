@@ -113,6 +113,7 @@ function estimateFundamental(shape, analysis) {
     torusknot: 55,
     chenGackstatter: 62,
     lopezros: 60,
+    model: 58,
   };
   const base = bases[shape] ?? 60;
   return base / Math.max(0.5, span * 0.3);

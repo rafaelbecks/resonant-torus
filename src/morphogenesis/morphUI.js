@@ -1,5 +1,6 @@
 import { morphParams, SHAPE_LABELS, MORPH_SHAPES } from "./morphParams.js";
 import { MINIMAL_SHAPES } from "./minimalSurfaces.js";
+import { loadModelCatalog, modelsToOptions } from "./modelCatalog.js";
 
 const SIDE_OPTIONS = { outside: "outside", inside: "inside", double: "double" };
 
@@ -22,13 +23,22 @@ function isMinimalShape(shape) {
   return MINIMAL_SHAPES.includes(shape);
 }
 
-export function setupMorphUI(container, morphSystem, onChange) {
+export async function setupMorphUI(container, morphSystem, onChange) {
   const folder = container;
+  const models = await loadModelCatalog();
+  const modelOptions = modelsToOptions(models);
+
+  if (!models.includes(morphParams.modelFile)) {
+    morphParams.modelFile = models[0];
+  }
 
   const shapeFolders = {};
+  let modelInput = null;
+  let segmentsInput = null;
 
   function syncShapeFolders() {
     const shape = morphParams.shape;
+    const isModel = shape === "model";
     shapeFolders.torus.hidden = shape !== "torus";
     shapeFolders.knot.hidden = shape !== "torusknot";
     shapeFolders.minimal.hidden = !isMinimalShape(shape);
@@ -37,6 +47,8 @@ export function setupMorphUI(container, morphSystem, onChange) {
     const stacked = morphParams.lopezRosMode === "stacked";
     shapeFolders.lopezStackCount.hidden = !stacked;
     shapeFolders.lopezStackSpacing.hidden = !stacked;
+    if (modelInput) modelInput.hidden = !isModel;
+    if (segmentsInput) segmentsInput.hidden = isModel;
   }
 
   const shapeInput = folder.addBinding(morphParams, "shape", {
@@ -48,9 +60,15 @@ export function setupMorphUI(container, morphSystem, onChange) {
     onChange?.();
   });
 
+  modelInput = folder.addBinding(morphParams, "modelFile", {
+    label: "model",
+    options: modelOptions,
+  });
+  modelInput.on("change", () => onChange?.());
+
   bind(folder, morphParams, "extent", { label: "extent", min: 0.5, max: 10, step: 0.1 }, onChange);
 
-  bind(
+  segmentsInput = bind(
     folder,
     morphParams,
     "shapeSegments",
