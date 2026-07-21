@@ -115,6 +115,53 @@ body {
   min-height: var(--header-h);
 }
 
+.panel-header--acoustics {
+  align-items: center;
+  position: relative;
+}
+
+.panel-header--acoustics .status-badge {
+  margin-right: auto;
+}
+
+.panel-collapse-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-collapse-btn:hover {
+  color: var(--text);
+  border-color: var(--accent-dim);
+  background: rgba(126, 184, 218, 0.08);
+}
+
+#acoustics-panel.is-collapsed #acoustics-content {
+  display: none;
+}
+
+#acoustics-panel.is-collapsed #acoustics-resize-handle {
+  display: none;
+  pointer-events: none;
+}
+
+#acoustics-panel.is-collapsed .panel-header--acoustics {
+  border-bottom: none;
+}
+
 .panel-header h1,
 .panel-header h2 {
   margin: 0;

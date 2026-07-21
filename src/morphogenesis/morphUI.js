@@ -1,6 +1,15 @@
 import { morphParams, SHAPE_LABELS, MORPH_SHAPES } from "./morphParams.js";
 import { MINIMAL_SHAPES } from "./minimalSurfaces.js";
 import { loadModelCatalog, modelsToOptions } from "./modelCatalog.js";
+import {
+  saveOrganism,
+  pickOrganismFile,
+  adoptLoadedOrganism,
+  markOrganismClean,
+  syncOrganismDirty,
+  installOrganismSaveShortcut,
+} from "./organismState.js";
+import * as TweakpaneRotationInputPlugin from "@0b5vr/tweakpane-plugin-rotation";
 
 const SIDE_OPTIONS = { outside: "outside", inside: "inside", double: "double" };
 
@@ -34,8 +43,20 @@ function isMinimalShape(shape) {
   return MINIMAL_SHAPES.includes(shape);
 }
 
-export async function setupMorphUI(container, morphSystem, onChange) {
+export async function setupMorphUI(
+  container,
+  morphSystem,
+  onChange,
+  { onGlassEnable, onOrganismLoaded, refreshPane, pane } = {}
+) {
   const folder = container;
+  if (pane) {
+    pane.registerPlugin(TweakpaneRotationInputPlugin);
+    pane.on("change", () => {
+      syncOrganismDirty();
+    });
+  }
+  installOrganismSaveShortcut();
   const models = await loadModelCatalog();
   const modelOptions = modelsToOptions(models);
 
@@ -265,31 +286,173 @@ export async function setupMorphUI(container, morphSystem, onChange) {
   bind(shapeFolders.leaf, morphParams, "leafFoldPower", { label: "fold curve", min: 0.3, max: 2.5, step: 0.05 }, onChange);
   bind(shapeFolders.leaf, morphParams, "leafResolution", { label: "resolution", min: 8, max: 256, step: 1 }, onChange);
 
-  const rotFolder = folder.addFolder({ title: "Rotation", expanded: false });
-  bind(
-    rotFolder,
-    morphParams,
-    "rotationX",
-    { label: "X", min: -Math.PI, max: Math.PI, step: 0.01 },
-    onChange
-  );
-  bind(
-    rotFolder,
-    morphParams,
-    "rotationY",
-    { label: "Y", min: -Math.PI, max: Math.PI, step: 0.01 },
-    onChange
-  );
-  bind(
-    rotFolder,
-    morphParams,
-    "rotationZ",
-    { label: "Z", min: -Math.PI, max: Math.PI, step: 0.01 },
-    onChange
-  );
+  const rotFolder = folder.addFolder({ title: "Rotation", expanded: true });
+
+  const modelRotation = {
+    euler: {
+      x: morphParams.rotationX,
+      y: morphParams.rotationY,
+      z: morphParams.rotationZ,
+    },
+  };
+
+  function syncRotationBinding() {
+    modelRotation.euler.x = morphParams.rotationX;
+    modelRotation.euler.y = morphParams.rotationY;
+    modelRotation.euler.z = morphParams.rotationZ;
+    rotationInput?.refresh();
+  }
+
+  const rotationInput = rotFolder.addBinding(modelRotation, "euler", {
+    label: "model",
+    view: "rotation",
+    rotationMode: "euler",
+    order: "XYZ",
+    unit: "rad",
+    picker: "inline",
+    expanded: true,
+  });
+  rotationInput.on("change", () => {
+    morphParams.rotationX = modelRotation.euler.x;
+    morphParams.rotationY = modelRotation.euler.y;
+    morphParams.rotationZ = modelRotation.euler.z;
+    onChange?.();
+  });
 
   bind(folder, morphParams, "side", { label: "side", options: SIDE_OPTIONS }, onChange);
   bind(folder, morphParams, "color", { label: "color" }, onChange);
+
+  const textureFolder = folder.addFolder({ title: "Texture", expanded: true });
+  const glassBindings = [];
+  let syncGlassFolder = null;
+
+  const glassEnabledInput = textureFolder.addBinding(morphParams, "glassEnabled", {
+    label: "material texture",
+  });
+  glassEnabledInput.on("change", () => {
+    if (morphParams.glassEnabled) {
+      onGlassEnable?.();
+    }
+    syncGlassFolder?.();
+    onChange?.();
+  });
+
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassMetalness",
+      { label: "metalness", min: 0, max: 1, step: 0.01 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassRoughness",
+      { label: "roughness", min: 0, max: 1, step: 0.01 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassTransmission",
+      { label: "transmission", min: 0, max: 1, step: 0.01 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassTransparent",
+      { label: "transparent" },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassIor",
+      { label: "index of reflection", min: 1, max: 2.33, step: 0.01 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassThickness",
+      { label: "thickness", min: 0, max: 5, step: 0.1 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassEnvMapIntensity",
+      { label: "env intensity", min: 0, max: 3, step: 0.1 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassClearcoat",
+      { label: "clearcoat", min: 0, max: 1, step: 0.01 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassClearcoatRoughness",
+      { label: "clearcoat rough", min: 0, max: 1, step: 0.01 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassNormalScale",
+      { label: "normal scale", min: 0, max: 5, step: 0.01 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassClearcoatNormalScale",
+      { label: "coat normal", min: 0, max: 5, step: 0.01 },
+      onChange
+    )
+  );
+  glassBindings.push(
+    bind(
+      textureFolder,
+      morphParams,
+      "glassNormalRepeat",
+      { label: "normal repeat", min: 1, max: 8, step: 1 },
+      onChange
+    )
+  );
+
+  syncGlassFolder = () => {
+    const show = morphParams.glassEnabled;
+    for (const binding of glassBindings) {
+      binding.hidden = !show;
+    }
+  };
+  syncGlassFolder();
 
   const noiseFolder = folder.addFolder({ title: "Noise deformation", expanded: true });
   bind(noiseFolder, morphParams, "noiseEnabled", { label: "enabled" }, onChange);
@@ -339,5 +502,62 @@ export async function setupMorphUI(container, morphSystem, onChange) {
     morphSystem.exportMorph();
   });
 
+  const organismFolder = folder.addFolder({ title: "Organism", expanded: true });
+  organismFolder.addButton({ title: "Save .organism" }).on("click", async () => {
+    try {
+      const result = await saveOrganism();
+      console.info(`[organism] saved ${result.filename} (${result.method})`);
+    } catch (err) {
+      if (err?.name === "AbortError" || err?.message === "File picker cancelled.") return;
+      console.error("[organism] save failed", err);
+      window.alert(err?.message || "Failed to save organism file.");
+    }
+  });
+  organismFolder.addButton({ title: "Save as…" }).on("click", async () => {
+    try {
+      const result = await saveOrganism({ forcePicker: true });
+      console.info(`[organism] saved ${result.filename} (${result.method})`);
+    } catch (err) {
+      if (err?.name === "AbortError" || err?.message === "File picker cancelled.") return;
+      console.error("[organism] save failed", err);
+      window.alert(err?.message || "Failed to save organism file.");
+    }
+  });
+  organismFolder.addButton({ title: "Load .organism" }).on("click", async () => {
+    try {
+      const { state, file, fileHandle } = await pickOrganismFile();
+      adoptLoadedOrganism({ state, file, fileHandle });
+      syncShapeFolders();
+      syncGlassFolder();
+      syncRotationBinding();
+      refreshPane?.();
+      await onOrganismLoaded?.(state);
+      onChange?.();
+      // Re-baseline after async env/pane side-effects so we don't stay dirty
+      markOrganismClean();
+      console.info(`[organism] loaded ${file.name}`);
+    } catch (err) {
+      if (err?.message === "File picker cancelled." || err?.message === "No file selected.") {
+        return;
+      }
+      console.error("[organism] load failed", err);
+      window.alert(err?.message || "Failed to load organism file.");
+    }
+  });
+
   syncShapeFolders();
+
+  return {
+    setGlassEnabled(enabled) {
+      morphParams.glassEnabled = enabled;
+      glassEnabledInput.refresh();
+      syncGlassFolder();
+    },
+    refreshLocal() {
+      syncShapeFolders();
+      syncGlassFolder();
+      syncRotationBinding();
+      syncOrganismDirty();
+    },
+  };
 }

@@ -1,5 +1,6 @@
 import { Pane } from "tweakpane";
-import { params, getEnvOptions, getEnvPath } from "../config.js";
+import { params, getEnvOptions, getEnvPath, getEnvFormat, pickRandomHdrEnvironment } from "../config.js";
+import { morphParams } from "../morphogenesis/morphParams.js";
 import { setupMorphUI } from "../morphogenesis/morphUI.js";
 import { createWebMidiController } from "../midi/webMidi.js";
 import { midiNoteName } from "../midi/notePitch.js";
@@ -32,10 +33,6 @@ export function createToolsPanel({
   const morphTab = tab.pages[0];
   const soundTab = tab.pages[1];
   const viewTab = tab.pages[2];
-
-  const morphUiReady = setupMorphUI(morphTab, morphSystem, () => {
-    onRefresh?.();
-  });
 
   const viewFolder = viewTab.addFolder({ title: "Viewer", expanded: true });
 
@@ -73,9 +70,17 @@ export function createToolsPanel({
 
   viewFolder.addBinding(params, "fpMove", { label: "WASD walk" });
   viewFolder.addBinding(params, "moveSpeed", { label: "walk speed", min: 1, max: 20, step: 0.5 });
-  viewFolder.addBinding(params, "wireframe", { label: "wireframe" }).on("change", () => {
-    onRefresh?.();
-  });
+
+  const wireframeBinding = viewFolder
+    .addBinding(params, "wireframe", { label: "wireframe" })
+    .on("change", (ev) => {
+      if (ev.value && morphParams.glassEnabled) {
+        if (morphUi) morphUi.setGlassEnabled(false);
+        else morphParams.glassEnabled = false;
+      }
+      onRefresh?.();
+    });
+
   viewFolder.addBinding(params, "roughness", {
     label: "roughness",
     min: 0,
@@ -97,19 +102,60 @@ export function createToolsPanel({
     sceneSystem.renderer.toneMappingExposure = ev.value;
   });
 
+  let morphUi = null;
+  let envBinding = null;
+  const morphUiReady = setupMorphUI(morphTab, morphSystem, () => {
+    onRefresh?.();
+  }, {
+    pane,
+    onGlassEnable: () => {
+      if (params.wireframe) {
+        params.wireframe = false;
+        wireframeBinding.refresh();
+      }
+      // Only pick a random HDR if nothing is selected yet
+      if (!params.environment || params.environment === "none") {
+        params.environment = pickRandomHdrEnvironment();
+        envBinding?.refresh();
+        onEnvironmentChange?.();
+      }
+    },
+    refreshPane: () => pane.refresh(),
+    onOrganismLoaded: async () => {
+      wireframeBinding.refresh();
+      envBinding?.refresh();
+      sceneSystem.renderer.toneMappingExposure = params.exposure;
+      sceneSystem.light.intensity = params.lightIntensity;
+      sceneSystem.ambient.intensity = params.ambient;
+      sceneSystem.scene.backgroundBlurriness = params.bgBlur;
+      await onEnvironmentChange?.();
+    },
+  }).then((api) => {
+    morphUi = api;
+    return api;
+  });
   const envFolder = viewTab.addFolder({ title: "Environment", expanded: true });
-  envFolder.addBinding(params, "environment", {
+  envBinding = envFolder.addBinding(params, "environment", {
     label: "HDR",
     options: getEnvOptions(),
-  }).on("change", () => onEnvironmentChange?.());
-  envFolder.addBinding(params, "bgBlur", {
-    label: "bg blur",
-    min: 0,
-    max: 1,
-    step: 0.01,
-  }).on("change", (ev) => {
-    sceneSystem.scene.backgroundBlurriness = ev.value;
   });
+  envBinding.on("change", () => {
+    if (getEnvFormat(params.environment) === "exr") {
+      params.bgBlur = 0.15;
+      bgBlurBinding.refresh();
+    }
+    onEnvironmentChange?.();
+  });
+  const bgBlurBinding = envFolder
+    .addBinding(params, "bgBlur", {
+      label: "bg blur",
+      min: 0,
+      max: 1,
+      step: 0.01,
+    })
+    .on("change", (ev) => {
+      sceneSystem.scene.backgroundBlurriness = ev.value;
+    });
   envFolder.addBinding(params, "lightIntensity", {
     label: "direct light",
     min: 0,
@@ -374,7 +420,9 @@ export function createToolsPanel({
       sceneSystem.clearEnvironment();
       return;
     }
-    await sceneSystem.loadEnvironment(path);
+    await sceneSystem.loadEnvironment(path, {
+      format: getEnvFormat(params.environment),
+    });
     sceneSystem.scene.backgroundBlurriness = params.bgBlur;
   }
 

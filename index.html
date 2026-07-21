@@ -7,7 +7,8 @@
   "imports": {
     "three": "https://esm.sh/three@0.182.0",
     "three/addons/": "https://esm.sh/three@0.182.0/addons/",
-    "tweakpane": "https://esm.sh/tweakpane@4.0.5"
+    "tweakpane": "https://esm.sh/tweakpane@4.0.5",
+    "@0b5vr/tweakpane-plugin-rotation": "https://esm.sh/@0b5vr/tweakpane-plugin-rotation@0.2.0?external=tweakpane"
   }
 }
 </script>
@@ -39,7 +40,7 @@
   <main id="viewer-panel">
     <header class="panel-header">
       <h1>Resonant Organisms</h1>
-      <p class="subtitle">morphogenesis · acoustic organism</p>
+      <p class="subtitle" id="specimen-label">morphogenesis · acoustic organism</p>
     </header>
     <div id="viewer-mount"></div>
   </main>
@@ -54,9 +55,17 @@
 
   <section id="acoustics-panel">
     <div id="acoustics-resize-handle" class="panel-resize-handle panel-resize-handle--horizontal" role="separator" aria-orientation="horizontal" aria-label="Resize acoustics panel"></div>
-    <header class="panel-header">
+    <header class="panel-header panel-header--acoustics">
       <h2>Acoustic Construction</h2>
       <div id="acoustics-status" class="status-badge">idle</div>
+      <button
+        type="button"
+        id="acoustics-collapse-btn"
+        class="panel-collapse-btn"
+        aria-label="Collapse acoustics panel"
+        aria-expanded="true"
+        title="Collapse"
+      >−</button>
     </header>
     <div id="acoustics-content">
       <div id="acoustics-network" class="patch-network" aria-label="Chamber network patch"></div>

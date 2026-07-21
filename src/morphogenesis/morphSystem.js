@@ -134,9 +134,15 @@ export function createMorphSystem({ scene, params: viewerParams }) {
   let loadId = 0;
   const glbLoader = createGlbLoader();
   const geometryCache = new Map();
+  const normalMapTexture = new THREE.TextureLoader().load(
+    "./textures/glass-normal.jpg"
+  );
+  normalMapTexture.wrapS = THREE.RepeatWrapping;
+  normalMapTexture.wrapT = THREE.RepeatWrapping;
+  normalMapTexture.colorSpace = THREE.NoColorSpace;
 
   function createMaterial() {
-    return new THREE.MeshStandardMaterial({
+    return new THREE.MeshPhysicalMaterial({
       color: morphParams.color,
       roughness: viewerParams.roughness,
       metalness: viewerParams.metalness,
@@ -145,14 +151,67 @@ export function createMorphSystem({ scene, params: viewerParams }) {
     });
   }
 
+  function applyMaterialState(material) {
+    const glass = morphParams.glassEnabled;
+    if (glass && viewerParams.wireframe) {
+      viewerParams.wireframe = false;
+    }
+
+    material.color.set(morphParams.color);
+    material.side = getMorphSide(morphParams.side);
+    material.wireframe = glass ? false : viewerParams.wireframe;
+
+    if (glass) {
+      material.metalness = morphParams.glassMetalness;
+      material.roughness = morphParams.glassRoughness;
+      material.transmission = morphParams.glassTransmission;
+      material.ior = morphParams.glassIor;
+      material.thickness = morphParams.glassThickness;
+      material.envMapIntensity = morphParams.glassEnvMapIntensity;
+      material.clearcoat = morphParams.glassClearcoat;
+      material.clearcoatRoughness = morphParams.glassClearcoatRoughness;
+      material.transparent = morphParams.glassTransparent;
+      normalMapTexture.repeat.set(
+        morphParams.glassNormalRepeat,
+        morphParams.glassNormalRepeat
+      );
+      material.normalMap = normalMapTexture;
+      material.clearcoatNormalMap = normalMapTexture;
+      material.normalScale.set(
+        morphParams.glassNormalScale,
+        morphParams.glassNormalScale
+      );
+      material.clearcoatNormalScale.set(
+        morphParams.glassClearcoatNormalScale,
+        morphParams.glassClearcoatNormalScale
+      );
+    } else {
+      material.metalness = viewerParams.metalness;
+      material.roughness = viewerParams.roughness;
+      material.transmission = 0;
+      material.thickness = 0;
+      material.ior = 1.5;
+      material.envMapIntensity = 1;
+      material.clearcoat = 0;
+      material.clearcoatRoughness = 0;
+      material.transparent = false;
+      material.normalMap = null;
+      material.clearcoatNormalMap = null;
+      material.normalScale.set(1, 1);
+      material.clearcoatNormalScale.set(1, 1);
+    }
+
+    material.needsUpdate = true;
+  }
+
   function assignGeometry(geometry) {
     if (mesh) {
       mesh.geometry.dispose();
       mesh.geometry = geometry;
-      mesh.material.side = getMorphSide(morphParams.side);
-      mesh.material.needsUpdate = true;
+      applyMaterialState(mesh.material);
     } else {
       mesh = new THREE.Mesh(geometry, createMaterial());
+      applyMaterialState(mesh.material);
       scene.add(mesh);
     }
 
@@ -240,13 +299,15 @@ export function createMorphSystem({ scene, params: viewerParams }) {
     builtKey = null;
   }
 
+  function dispose() {
+    disposeMesh();
+    normalMapTexture.dispose();
+  }
+
   async function sync() {
     await rebuildGeometry();
     if (mesh) {
-      mesh.material.color.set(morphParams.color);
-      mesh.material.roughness = viewerParams.roughness;
-      mesh.material.metalness = viewerParams.metalness;
-      mesh.material.wireframe = viewerParams.wireframe;
+      applyMaterialState(mesh.material);
       mesh.visible = true;
 
       noiseMix = morphParams.noiseEnabled ? 1 : 0;
@@ -343,7 +404,7 @@ export function createMorphSystem({ scene, params: viewerParams }) {
   return {
     sync,
     update: updateNoise,
-    dispose: disposeMesh,
+    dispose,
     getAnalysisMesh,
     getNoiseMix,
     snapNoiseMix,

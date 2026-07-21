@@ -5,6 +5,8 @@ const LIMITS = {
   acousticsHeight: { min: 120, minViewer: 160 },
 };
 
+const COLLAPSED_ACOUSTICS_HEIGHT = 44; // matches --header-h
+
 function getAppHeight() {
   return document.getElementById("app")?.clientHeight ?? window.innerHeight;
 }
@@ -102,9 +104,10 @@ function setupWidthResize(handle, { onResize } = {}) {
   });
 }
 
-function setupHeightResize(handle, { onResize } = {}) {
+function setupHeightResize(handle, { onResize, isCollapsed } = {}) {
   handle.addEventListener("pointerdown", (ev) => {
     if (ev.button !== 0) return;
+    if (isCollapsed?.()) return;
     ev.preventDefault();
     handle.setPointerCapture(ev.pointerId);
     handle.classList.add("is-dragging");
@@ -133,23 +136,86 @@ function setupHeightResize(handle, { onResize } = {}) {
   });
 }
 
+function setupAcousticsCollapse({ onResize } = {}) {
+  const panel = document.getElementById("acoustics-panel");
+  const btn = document.getElementById("acoustics-collapse-btn");
+  if (!panel || !btn) return () => false;
+
+  let collapsed = false;
+  let expandedHeight = clampAcousticsHeight(
+    loadSaved().acousticsHeight || readPxVar("--acoustics-height") || 260
+  );
+
+  function applyCollapsed(nextCollapsed, { persist = true } = {}) {
+    collapsed = nextCollapsed;
+    panel.classList.toggle("is-collapsed", collapsed);
+
+    if (collapsed) {
+      const current = readAcousticsHeight();
+      if (current > COLLAPSED_ACOUSTICS_HEIGHT + 8) {
+        expandedHeight = clampAcousticsHeight(current);
+      }
+      const header = panel.querySelector(".panel-header--acoustics");
+      const headerH = Math.ceil(header?.getBoundingClientRect().height || COLLAPSED_ACOUSTICS_HEIGHT);
+      setPxVar("--acoustics-height", Math.max(COLLAPSED_ACOUSTICS_HEIGHT, headerH));
+      btn.textContent = "+";
+      btn.setAttribute("aria-label", "Expand acoustics panel");
+      btn.setAttribute("aria-expanded", "false");
+      btn.title = "Expand";
+    } else {
+      setPxVar("--acoustics-height", clampAcousticsHeight(expandedHeight));
+      btn.textContent = "−";
+      btn.setAttribute("aria-label", "Collapse acoustics panel");
+      btn.setAttribute("aria-expanded", "true");
+      btn.title = "Collapse";
+    }
+
+    if (persist) {
+      saveSizes({
+        ...loadSaved(),
+        acousticsCollapsed: collapsed,
+        acousticsHeight: collapsed
+          ? expandedHeight
+          : clampAcousticsHeight(readAcousticsHeight()),
+      });
+    }
+
+    onResize?.();
+  }
+
+  btn.addEventListener("click", () => {
+    applyCollapsed(!collapsed);
+  });
+
+  const saved = loadSaved();
+  if (saved.acousticsCollapsed) {
+    applyCollapsed(true, { persist: false });
+  }
+
+  return () => collapsed;
+}
+
 export function initPanelResize({ onResize } = {}) {
   const saved = loadSaved();
   if (saved.toolsWidth) {
     setPxVar("--tools-width", Math.min(LIMITS.toolsWidth.max, Math.max(LIMITS.toolsWidth.min, saved.toolsWidth)));
   }
-  if (saved.acousticsHeight) {
+  if (saved.acousticsHeight && !saved.acousticsCollapsed) {
     setPxVar("--acoustics-height", clampAcousticsHeight(saved.acousticsHeight));
   }
 
   const toolsHandle = document.getElementById("tools-resize-handle");
   const acousticsHandle = document.getElementById("acoustics-resize-handle");
 
+  const isCollapsed = setupAcousticsCollapse({ onResize });
+
   if (toolsHandle) setupWidthResize(toolsHandle, { onResize });
-  if (acousticsHandle) setupHeightResize(acousticsHandle, { onResize });
+  if (acousticsHandle) setupHeightResize(acousticsHandle, { onResize, isCollapsed });
 
   window.addEventListener("resize", () => {
-    setPxVar("--acoustics-height", clampAcousticsHeight(readAcousticsHeight()));
+    if (!isCollapsed()) {
+      setPxVar("--acoustics-height", clampAcousticsHeight(readAcousticsHeight()));
+    }
     onResize?.();
   });
 }

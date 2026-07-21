@@ -1,0 +1,352 @@
+import { morphParams, MORPH_PARAM_KEYS, clampMorphParams } from "./morphParams.js";
+import { params as viewerParams } from "../config.js";
+
+export const ORGANISM_TYPE = "organism";
+export const ORGANISM_VERSION = 1;
+
+const VIEWER_KEYS = [
+  "wireframe",
+  "roughness",
+  "metalness",
+  "environment",
+  "exposure",
+  "bgBlur",
+  "lightIntensity",
+  "ambient",
+];
+
+const DEFAULT_SPECIMEN_LABEL = "morphogenesis · acoustic organism";
+
+const ORGANISM_OPEN_OPTS = {
+  multiple: false,
+  types: [
+    {
+      description: "Organism",
+      accept: {
+        "application/json": [".organism", ".json"],
+      },
+    },
+  ],
+};
+
+const ORGANISM_SAVE_OPTS = {
+  types: [
+    {
+      description: "Organism",
+      accept: {
+        "application/json": [".organism"],
+      },
+    },
+  ],
+};
+
+/** @type {{
+ *   id: string | null,
+ *   filename: string | null,
+ *   fileHandle: FileSystemFileHandle | null,
+ *   cleanFingerprint: string | null,
+ *   dirty: boolean,
+ * }} */
+const session = {
+  id: null,
+  filename: null,
+  fileHandle: null,
+  cleanFingerprint: null,
+  dirty: false,
+};
+
+function shortUuid() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+  }
+  return Math.random().toString(16).slice(2, 10);
+}
+
+export function createOrganismId() {
+  return shortUuid();
+}
+
+export function organismFilename(id = createOrganismId()) {
+  return `spec-${id}.organism`;
+}
+
+export function supportsFileSystemAccess() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.showOpenFilePicker === "function" &&
+    typeof window.showSaveFilePicker === "function"
+  );
+}
+
+export function getOrganismSession() {
+  return {
+    id: session.id,
+    filename: session.filename,
+    dirty: session.dirty,
+    hasFileHandle: !!session.fileHandle,
+  };
+}
+
+function contentFingerprint() {
+  clampMorphParams();
+  return JSON.stringify({
+    morph: Object.fromEntries(MORPH_PARAM_KEYS.map((k) => [k, morphParams[k]])),
+    viewer: Object.fromEntries(VIEWER_KEYS.map((k) => [k, viewerParams[k]])),
+  });
+}
+
+export function serializeOrganism({ id = session.id ?? createOrganismId() } = {}) {
+  clampMorphParams();
+  return {
+    type: ORGANISM_TYPE,
+    version: ORGANISM_VERSION,
+    id,
+    createdAt: new Date().toISOString(),
+    morph: Object.fromEntries(MORPH_PARAM_KEYS.map((k) => [k, morphParams[k]])),
+    viewer: Object.fromEntries(VIEWER_KEYS.map((k) => [k, viewerParams[k]])),
+  };
+}
+
+export function applyOrganismState(state) {
+  if (!state || state.type !== ORGANISM_TYPE) {
+    throw new Error('Invalid organism file (expected type "organism").');
+  }
+
+  if (state.morph && typeof state.morph === "object") {
+    for (const key of MORPH_PARAM_KEYS) {
+      if (state.morph[key] !== undefined) {
+        morphParams[key] = state.morph[key];
+      }
+    }
+    clampMorphParams();
+  }
+
+  if (state.viewer && typeof state.viewer === "object") {
+    for (const key of VIEWER_KEYS) {
+      if (state.viewer[key] !== undefined) {
+        viewerParams[key] = state.viewer[key];
+      }
+    }
+  }
+
+  if (morphParams.glassEnabled) {
+    viewerParams.wireframe = false;
+  }
+
+  return state.id ?? null;
+}
+
+function refreshSpecimenLabel() {
+  if (typeof document === "undefined") return;
+  const el = document.getElementById("specimen-label");
+  if (!el) return;
+
+  if (!session.filename) {
+    el.textContent = DEFAULT_SPECIMEN_LABEL;
+    el.title = "";
+    return;
+  }
+
+  const star = session.dirty ? "*" : "";
+  el.textContent = `morphogenesis · ${session.filename}${star}`;
+  el.title = session.dirty
+    ? `${session.filename} (unsaved changes — ⌘S to save)`
+    : session.filename;
+}
+
+/** Recompute dirty flag from current params and update the specimen label. */
+export function syncOrganismDirty() {
+  if (!session.filename || session.cleanFingerprint == null) {
+    session.dirty = false;
+    refreshSpecimenLabel();
+    return session.dirty;
+  }
+  const dirty = contentFingerprint() !== session.cleanFingerprint;
+  if (dirty !== session.dirty) {
+    session.dirty = dirty;
+    refreshSpecimenLabel();
+  }
+  return session.dirty;
+}
+
+function markSessionClean({ id, filename, fileHandle = null } = {}) {
+  if (id != null) session.id = id;
+  if (filename != null) session.filename = filename;
+  if (fileHandle !== undefined) session.fileHandle = fileHandle;
+  session.cleanFingerprint = contentFingerprint();
+  session.dirty = false;
+  refreshSpecimenLabel();
+}
+
+/** Snapshot current params as the clean (saved) baseline. */
+export function markOrganismClean() {
+  if (!session.filename) return;
+  session.cleanFingerprint = contentFingerprint();
+  session.dirty = false;
+  refreshSpecimenLabel();
+}
+
+export function setSpecimenLabel(filename) {
+  session.filename = filename || null;
+  if (!filename) {
+    session.id = null;
+    session.fileHandle = null;
+    session.cleanFingerprint = null;
+    session.dirty = false;
+  }
+  refreshSpecimenLabel();
+}
+
+async function ensureWritePermission(fileHandle) {
+  const opts = { mode: "readwrite" };
+  if ((await fileHandle.queryPermission(opts)) === "granted") return true;
+  if ((await fileHandle.requestPermission(opts)) === "granted") return true;
+  return false;
+}
+
+async function writeToFileHandle(fileHandle, state) {
+  const ok = await ensureWritePermission(fileHandle);
+  if (!ok) {
+    throw new Error("Write permission denied for organism file.");
+  }
+  const writable = await fileHandle.createWritable();
+  await writable.write(JSON.stringify(state, null, 2));
+  await writable.close();
+}
+
+/** Classic download fallback when File System Access is unavailable. */
+export function downloadOrganism(state = serializeOrganism()) {
+  const filename = organismFilename(state.id);
+  const blob = new Blob([JSON.stringify(state, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  markSessionClean({ id: state.id, filename, fileHandle: null });
+  return { filename, id: state.id };
+}
+
+/**
+ * Save current organism. Overwrites the open file handle when possible
+ * (⌘S / Save). Falls back to save-picker or download.
+ */
+export async function saveOrganism({ forcePicker = false } = {}) {
+  const id = session.id ?? createOrganismId();
+  const state = serializeOrganism({ id });
+
+  if (!forcePicker && session.fileHandle && supportsFileSystemAccess()) {
+    await writeToFileHandle(session.fileHandle, state);
+    markSessionClean({
+      id,
+      filename: session.filename ?? session.fileHandle.name,
+      fileHandle: session.fileHandle,
+    });
+    return { filename: session.filename, id, method: "handle" };
+  }
+
+  if (supportsFileSystemAccess()) {
+    const handle = await window.showSaveFilePicker({
+      ...ORGANISM_SAVE_OPTS,
+      suggestedName: session.filename ?? organismFilename(id),
+    });
+    await writeToFileHandle(handle, state);
+    markSessionClean({ id, filename: handle.name, fileHandle: handle });
+    return { filename: handle.name, id, method: "picker" };
+  }
+
+  return { ...downloadOrganism(state), method: "download" };
+}
+
+export async function pickOrganismFile() {
+  if (supportsFileSystemAccess()) {
+    try {
+      const [handle] = await window.showOpenFilePicker(ORGANISM_OPEN_OPTS);
+      const file = await handle.getFile();
+      const text = await file.text();
+      const state = JSON.parse(text);
+      return { state, file, fileHandle: handle };
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new Error("File picker cancelled.");
+      }
+      throw err;
+    }
+  }
+
+  return pickOrganismFileInput();
+}
+
+function pickOrganismFileInput() {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".organism,application/json";
+    input.style.display = "none";
+    document.body.appendChild(input);
+
+    const cleanup = () => {
+      input.remove();
+    };
+
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      cleanup();
+      if (!file) {
+        reject(new Error("No file selected."));
+        return;
+      }
+      try {
+        const text = await file.text();
+        const state = JSON.parse(text);
+        resolve({ state, file, fileHandle: null });
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    input.addEventListener("cancel", () => {
+      cleanup();
+      reject(new Error("File picker cancelled."));
+    });
+
+    input.click();
+  });
+}
+
+/**
+ * Apply a loaded organism into the session (keeps file handle for overwrite).
+ */
+export function adoptLoadedOrganism({ state, file, fileHandle = null }) {
+  const id = applyOrganismState(state) ?? state.id ?? createOrganismId();
+  markSessionClean({
+    id,
+    filename: file?.name ?? organismFilename(id),
+    fileHandle,
+  });
+  return id;
+}
+
+/** Wire ⌘S / Ctrl+S to overwrite the current organism file. */
+export function installOrganismSaveShortcut() {
+  const onKeyDown = async (ev) => {
+    const mod = ev.metaKey || ev.ctrlKey;
+    if (!mod || (ev.key !== "s" && ev.key !== "S")) return;
+    // Ignore when typing in inputs/textareas (except we still want save globally for this app)
+    ev.preventDefault();
+    try {
+      const result = await saveOrganism();
+      console.info(`[organism] saved ${result.filename} (${result.method})`);
+    } catch (err) {
+      if (err?.name === "AbortError" || err?.message === "File picker cancelled.") return;
+      console.error("[organism] save failed", err);
+      window.alert(err?.message || "Failed to save organism file.");
+    }
+  };
+
+  window.addEventListener("keydown", onKeyDown);
+  return () => window.removeEventListener("keydown", onKeyDown);
+}

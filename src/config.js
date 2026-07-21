@@ -22,6 +22,14 @@ export const HDR_ENVIRONMENTS = {
     label: "Qwantani Night",
     file: "qwantani_night_puresky_1k.hdr",
   },
+  // From cartografias-imposibles env/exr (1–7)
+  exr_1: { label: "Calle (EXR)", file: "exr/1.jpg_env.exr", format: "exr" },
+  exr_2: { label: "Lámpara (EXR)", file: "exr/2_env.exr", format: "exr" },
+  exr_3: { label: "Ventana (EXR)", file: "exr/3_env.exr", format: "exr" },
+  exr_4: { label: "Playa (EXR)", file: "exr/4_env.exr", format: "exr" },
+  exr_5: { label: "Cielo y edificio (EXR)", file: "exr/5_env.exr", format: "exr" },
+  exr_6: { label: "Puente nocturno (EXR)", file: "exr/6.jpg_env.exr", format: "exr" },
+  exr_7: { label: "Árboles borrosos (EXR)", file: "exr/7_env.exr", format: "exr" },
 };
 
 export function getEnvOptions() {
@@ -30,10 +38,29 @@ export function getEnvOptions() {
   );
 }
 
+export function getHdrEnvironmentIds() {
+  return Object.keys(HDR_ENVIRONMENTS).filter(
+    (id) => id !== "none" && HDR_ENVIRONMENTS[id]?.format !== "exr"
+  );
+}
+
+export function pickRandomHdrEnvironment(excludeId = null) {
+  const ids = getHdrEnvironmentIds().filter((id) => id !== excludeId);
+  if (!ids.length) return "industrial_sunset";
+  return ids[Math.floor(Math.random() * ids.length)];
+}
+
 export function getEnvPath(envId) {
   const env = HDR_ENVIRONMENTS[envId];
   if (!env?.file) return null;
   return `./env/${env.file}`;
+}
+
+export function getEnvFormat(envId) {
+  const env = HDR_ENVIRONMENTS[envId];
+  if (!env?.file) return null;
+  if (env.format) return env.format;
+  return env.file.endsWith(".exr") ? "exr" : "hdr";
 }
 
 export const params = {

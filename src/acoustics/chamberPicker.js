@@ -15,6 +15,7 @@ export function createChamberPicker({
   getMesh,
   getAnalysis,
   onSelect,
+  isInteractive = () => true,
 }) {
   const raycaster = new THREE.Raycaster();
   raycaster.params.Points = { threshold: 0.2 };
@@ -24,6 +25,7 @@ export function createChamberPicker({
   scene.add(markers);
 
   let selectedId = null;
+  let interactive = true;
 
   function clearMarkers() {
     while (markers.children.length) {
@@ -106,17 +108,26 @@ export function createChamberPicker({
 
   function onPointerDown(ev) {
     if (ev.button !== 0) return;
+    if (!interactive || !isInteractive()) return;
     const id = pick(ev.clientX, ev.clientY);
     if (id == null) return;
     highlightChamber(id, getAnalysis());
     onSelect?.(id);
   }
 
+  function setEnabled(enabled) {
+    interactive = !!enabled;
+    markers.visible = interactive;
+  }
+
+  setEnabled(isInteractive());
+
   domElement.addEventListener("pointerdown", onPointerDown);
 
   return {
     updateFromAnalysis,
     highlightChamber,
+    setEnabled,
     getSelected: () => selectedId,
     dispose() {
       domElement.removeEventListener("pointerdown", onPointerDown);

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
+import { EXRLoader } from "three/addons/loaders/EXRLoader.js";
 import { params } from "./config.js";
 
 export function createSceneSystem({ mount, loading } = {}) {
@@ -84,6 +85,7 @@ export function createSceneSystem({ mount, loading } = {}) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
   const rgbeLoader = new RGBELoader();
+  const exrLoader = new EXRLoader();
   let currentEnvMap = null;
   let currentEnvPath = null;
   let envLoadId = 0;
@@ -102,7 +104,7 @@ export function createSceneSystem({ mount, loading } = {}) {
     texture.dispose();
   }
 
-  function loadEnvironment(path, { silent = false } = {}) {
+  function loadEnvironment(path, { silent = false, format = null } = {}) {
     if (!path) {
       clearEnvironment();
       return Promise.resolve();
@@ -114,10 +116,14 @@ export function createSceneSystem({ mount, loading } = {}) {
     }
 
     const id = ++envLoadId;
+    const resolvedFormat =
+      format ?? (String(path).endsWith(".exr") ? "exr" : "hdr");
+    const loader = resolvedFormat === "exr" ? exrLoader : rgbeLoader;
+
     return new Promise((resolve, reject) => {
       if (!silent) loading?.begin("environment");
 
-      rgbeLoader.load(
+      loader.load(
         path,
         (texture) => {
           if (id !== envLoadId) {

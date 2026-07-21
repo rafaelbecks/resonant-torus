@@ -99,6 +99,7 @@ export async function bootApp() {
     getMesh: getActiveMesh,
     getAnalysis: () => acousticPanel.getAnalysis(),
     onSelect: (id) => acousticPanel.selectChamber(id, { skipPicker: true }),
+    isInteractive: () => params.showChamberGraph,
   });
 
   initPanelResize({
@@ -292,7 +293,10 @@ export async function bootApp() {
       await morphSystem.sync();
       scheduleAnalysis();
     },
-    onChamberGraphChange: () => syncChamberGraph(),
+    onChamberGraphChange: () => {
+      syncChamberGraph();
+      chamberPicker?.setEnabled(params.showChamberGraph);
+    },
   });
 
   await toolsPanel.ready;
