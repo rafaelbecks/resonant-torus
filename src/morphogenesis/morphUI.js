@@ -56,6 +56,7 @@ export async function setupMorphUI(container, morphSystem, onChange) {
     shapeFolders.chen.hidden = shape !== "chenGackstatter";
     shapeFolders.lopez.hidden = shape !== "lopezros";
     shapeFolders.gielis.hidden = shape !== "gielis";
+    shapeFolders.leaf.hidden = shape !== "baschetLeaf";
     const stacked = morphParams.lopezRosMode === "stacked";
     shapeFolders.lopezStackCount.hidden = !stacked;
     shapeFolders.lopezStackSpacing.hidden = !stacked;
@@ -249,6 +250,20 @@ export async function setupMorphUI(container, morphSystem, onChange) {
   bind(gielisPhi, morphParams, "gielisN21", { label: "n1", min: -20, max: 40, step: 0.1 }, onChange);
   bind(gielisPhi, morphParams, "gielisN22", { label: "n2", min: -20, max: 40, step: 0.1 }, onChange);
   bind(gielisPhi, morphParams, "gielisN23", { label: "n3", min: -20, max: 40, step: 0.1 }, onChange);
+
+  shapeFolders.leaf = folder.addFolder({ title: "Leaf", expanded: true });
+  bind(shapeFolders.leaf, morphParams, "leafRadius", { label: "radius", min: 0.1, max: 3, step: 0.05 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafWidthScale", { label: "widthScale", min: 0.1, max: 2, step: 0.05 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafHeightScale", { label: "heightScale", min: 0.2, max: 3, step: 0.05 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafExponent", { label: "exponent", min: 0.1, max: 5, step: 0.05 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafAsymmetry", { label: "asymmetry", min: -0.8, max: 0.8, step: 0.01 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafTopPinch", { label: "topPinch", min: 0, max: 0.9, step: 0.01 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafBottomPinch", { label: "bottomPinch", min: 0, max: 0.9, step: 0.01 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafSkew", { label: "skew", min: -1, max: 1, step: 0.01 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafBulge", { label: "bulge", min: 0.2, max: 0.8, step: 0.01 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafFoldDepth", { label: "fold", min: 0, max: 1, step: 0.01 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafFoldPower", { label: "fold curve", min: 0.3, max: 2.5, step: 0.05 }, onChange);
+  bind(shapeFolders.leaf, morphParams, "leafResolution", { label: "resolution", min: 8, max: 256, step: 1 }, onChange);
 
   const rotFolder = folder.addFolder({ title: "Rotation", expanded: false });
   bind(

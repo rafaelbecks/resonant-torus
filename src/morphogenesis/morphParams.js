@@ -4,6 +4,7 @@ export const MORPH_SHAPES = [
   "chenGackstatter",
   "lopezros",
   "gielis",
+  "baschetLeaf",
   "model",
 ];
 
@@ -13,6 +14,7 @@ export const SHAPE_LABELS = {
   chenGackstatter: "Chen–Gackstätter",
   lopezros: "López–Ros",
   gielis: "Gielis superformula",
+  baschetLeaf: "Baschet leaf",
   model: "model",
 };
 
@@ -55,6 +57,18 @@ export const morphParams = {
   gielisFamily2: "superellipse",
   gielisPhiMode: "latitude",
   gielisVSegments: 64,
+  leafRadius: 1,
+  leafWidthScale: 0.55,
+  leafHeightScale: 1.85,
+  leafExponent: 0.85,
+  leafAsymmetry: 0,
+  leafTopPinch: 0.08,
+  leafBottomPinch: 0.12,
+  leafSkew: 0,
+  leafResolution: 64,
+  leafFoldDepth: 0.28,
+  leafFoldPower: 1.15,
+  leafBulge: 0.58,
   rotationX: 0,
   rotationY: 0,
   rotationZ: 0,
@@ -111,4 +125,14 @@ export function clampMorphParams() {
     morphParams.gielisPhiMode = "latitude";
   }
   morphParams.gielisVSegments = Math.max(16, Math.min(256, Math.round(morphParams.gielisVSegments)));
+  morphParams.leafRadius = Math.max(0.05, morphParams.leafRadius);
+  morphParams.leafWidthScale = Math.max(0.05, morphParams.leafWidthScale);
+  morphParams.leafHeightScale = Math.max(0.05, morphParams.leafHeightScale);
+  morphParams.leafExponent = Math.max(0.05, morphParams.leafExponent);
+  morphParams.leafTopPinch = Math.max(0, Math.min(0.95, morphParams.leafTopPinch));
+  morphParams.leafBottomPinch = Math.max(0, Math.min(0.95, morphParams.leafBottomPinch));
+  morphParams.leafResolution = Math.max(8, Math.min(256, Math.round(morphParams.leafResolution)));
+  morphParams.leafFoldDepth = Math.max(0, Math.min(1.5, morphParams.leafFoldDepth));
+  morphParams.leafFoldPower = Math.max(0.2, Math.min(3, morphParams.leafFoldPower));
+  morphParams.leafBulge = Math.max(0.15, Math.min(0.85, morphParams.leafBulge));
 }
