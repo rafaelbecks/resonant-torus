@@ -113,6 +113,7 @@ function estimateFundamental(shape, analysis) {
     torusknot: 55,
     chenGackstatter: 62,
     lopezros: 60,
+    gielis: 58,
     model: 58,
   };
   const base = bases[shape] ?? 60;

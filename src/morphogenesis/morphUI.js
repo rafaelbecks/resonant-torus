@@ -13,6 +13,17 @@ const LOPEZ_ROS_MODE_OPTIONS = {
   "stacked catenoids": "stacked",
 };
 
+const GIELIS_FAMILY_OPTIONS = {
+  superellipse: "superellipse",
+  superrose: "superrose",
+  superspiral: "superspiral",
+};
+
+const GIELIS_PHI_MODE_OPTIONS = {
+  "latitude (−π/2…π/2)": "latitude",
+  "full period": "full",
+};
+
 function bind(folder, obj, key, opts, onChange) {
   const input = folder.addBinding(obj, key, opts);
   input.on("change", () => onChange?.());
@@ -44,6 +55,7 @@ export async function setupMorphUI(container, morphSystem, onChange) {
     shapeFolders.minimal.hidden = !isMinimalShape(shape);
     shapeFolders.chen.hidden = shape !== "chenGackstatter";
     shapeFolders.lopez.hidden = shape !== "lopezros";
+    shapeFolders.gielis.hidden = shape !== "gielis";
     const stacked = morphParams.lopezRosMode === "stacked";
     shapeFolders.lopezStackCount.hidden = !stacked;
     shapeFolders.lopezStackSpacing.hidden = !stacked;
@@ -203,6 +215,40 @@ export async function setupMorphUI(container, morphSystem, onChange) {
     { label: "neck span", min: 0.35, max: 5, step: 0.05 },
     onChange
   );
+
+  shapeFolders.gielis = folder.addFolder({ title: "Gielis superformula", expanded: true });
+  bind(
+    shapeFolders.gielis,
+    morphParams,
+    "gielisPhiMode",
+    { label: "φ range", options: GIELIS_PHI_MODE_OPTIONS },
+    onChange
+  );
+  bind(
+    shapeFolders.gielis,
+    morphParams,
+    "gielisVSegments",
+    { label: "φ segments", min: 16, max: 256, step: 1 },
+    onChange
+  );
+
+  const gielisTheta = shapeFolders.gielis.addFolder({ title: "θ set (longitude)", expanded: true });
+  bind(gielisTheta, morphParams, "gielisFamily1", { label: "family", options: GIELIS_FAMILY_OPTIONS }, onChange);
+  bind(gielisTheta, morphParams, "gielisA1", { label: "a", min: 0.05, max: 4, step: 0.05 }, onChange);
+  bind(gielisTheta, morphParams, "gielisB1", { label: "b", min: 0.05, max: 4, step: 0.05 }, onChange);
+  bind(gielisTheta, morphParams, "gielisM1", { label: "m", min: 0, max: 20, step: 0.1 }, onChange);
+  bind(gielisTheta, morphParams, "gielisN11", { label: "n1", min: -20, max: 40, step: 0.1 }, onChange);
+  bind(gielisTheta, morphParams, "gielisN12", { label: "n2", min: -20, max: 40, step: 0.1 }, onChange);
+  bind(gielisTheta, morphParams, "gielisN13", { label: "n3", min: -20, max: 40, step: 0.1 }, onChange);
+
+  const gielisPhi = shapeFolders.gielis.addFolder({ title: "φ set (latitude)", expanded: true });
+  bind(gielisPhi, morphParams, "gielisFamily2", { label: "family", options: GIELIS_FAMILY_OPTIONS }, onChange);
+  bind(gielisPhi, morphParams, "gielisA2", { label: "a", min: 0.05, max: 4, step: 0.05 }, onChange);
+  bind(gielisPhi, morphParams, "gielisB2", { label: "b", min: 0.05, max: 4, step: 0.05 }, onChange);
+  bind(gielisPhi, morphParams, "gielisM2", { label: "m", min: 0, max: 20, step: 0.1 }, onChange);
+  bind(gielisPhi, morphParams, "gielisN21", { label: "n1", min: -20, max: 40, step: 0.1 }, onChange);
+  bind(gielisPhi, morphParams, "gielisN22", { label: "n2", min: -20, max: 40, step: 0.1 }, onChange);
+  bind(gielisPhi, morphParams, "gielisN23", { label: "n3", min: -20, max: 40, step: 0.1 }, onChange);
 
   const rotFolder = folder.addFolder({ title: "Rotation", expanded: false });
   bind(

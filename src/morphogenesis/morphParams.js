@@ -3,6 +3,7 @@ export const MORPH_SHAPES = [
   "torusknot",
   "chenGackstatter",
   "lopezros",
+  "gielis",
   "model",
 ];
 
@@ -11,6 +12,7 @@ export const SHAPE_LABELS = {
   torusknot: "torus knot",
   chenGackstatter: "Chen–Gackstätter",
   lopezros: "López–Ros",
+  gielis: "Gielis superformula",
   model: "model",
 };
 
@@ -37,6 +39,22 @@ export const morphParams = {
   lopezRosMode: "catenoid",
   lopezRosStackCount: 3,
   lopezRosStackSpacing: 1.0,
+  gielisA1: 1,
+  gielisB1: 1,
+  gielisM1: 6,
+  gielisN11: 1,
+  gielisN12: 1,
+  gielisN13: 1,
+  gielisFamily1: "superellipse",
+  gielisA2: 1,
+  gielisB2: 1,
+  gielisM2: 3,
+  gielisN21: 1,
+  gielisN22: 1,
+  gielisN23: 1,
+  gielisFamily2: "superellipse",
+  gielisPhiMode: "latitude",
+  gielisVSegments: 64,
   rotationX: 0,
   rotationY: 0,
   rotationZ: 0,
@@ -78,4 +96,19 @@ export function clampMorphParams() {
     Math.min(7, Math.round(morphParams.lopezRosStackCount))
   );
   morphParams.lopezRosStackSpacing = Math.max(0.35, morphParams.lopezRosStackSpacing);
+  for (const i of ["1", "2"]) {
+    if (morphParams[`gielisA${i}`] === 0) morphParams[`gielisA${i}`] = 1e-3;
+    if (morphParams[`gielisB${i}`] === 0) morphParams[`gielisB${i}`] = 1e-3;
+    if (morphParams[`gielisN${i}1`] === 0) morphParams[`gielisN${i}1`] = 1e-3;
+  }
+  if (!["superellipse", "superrose", "superspiral"].includes(morphParams.gielisFamily1)) {
+    morphParams.gielisFamily1 = "superellipse";
+  }
+  if (!["superellipse", "superrose", "superspiral"].includes(morphParams.gielisFamily2)) {
+    morphParams.gielisFamily2 = "superellipse";
+  }
+  if (!["latitude", "full"].includes(morphParams.gielisPhiMode)) {
+    morphParams.gielisPhiMode = "latitude";
+  }
+  morphParams.gielisVSegments = Math.max(16, Math.min(256, Math.round(morphParams.gielisVSegments)));
 }
