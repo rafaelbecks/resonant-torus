@@ -15,6 +15,7 @@ import { initPanelResize } from "./ui/panelResize.js";
 import { createCameraFocus } from "./scene/cameraFocus.js";
 import { morphParams } from "./morphogenesis/morphParams.js";
 import { midiNoteToPitchMultiplier } from "./midi/notePitch.js";
+import { updateMidiSmoothing } from "./midi/midiCamera.js";
 
 export async function bootApp() {
   const loading = createLoading();
@@ -313,7 +314,15 @@ export async function bootApp() {
 
     input.applyWalkMovement(delta);
     cameraFocus.update();
+    // OrbitControls first, then MIDI zoom override (so damping doesn't fight us)
     sceneSystem.controls.update();
+    const { rotated } = updateMidiSmoothing(delta, {
+      camera: sceneSystem.camera,
+      controls: sceneSystem.controls,
+    });
+    if (rotated) {
+      morphSystem.applyTransform();
+    }
     morphSystem.update(delta);
 
     sceneSystem.renderer.render(sceneSystem.scene, sceneSystem.camera);

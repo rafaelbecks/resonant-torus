@@ -8,6 +8,7 @@ import {
   markOrganismClean,
   syncOrganismDirty,
   installOrganismSaveShortcut,
+  applyOrganismMidi,
 } from "./organismState.js";
 import * as TweakpaneRotationInputPlugin from "@0b5vr/tweakpane-plugin-rotation";
 
@@ -368,15 +369,6 @@ export async function setupMorphUI(
     bind(
       textureFolder,
       morphParams,
-      "glassTransparent",
-      { label: "transparent" },
-      onChange
-    )
-  );
-  glassBindings.push(
-    bind(
-      textureFolder,
-      morphParams,
       "glassIor",
       { label: "index of reflection", min: 1, max: 2.33, step: 0.01 },
       onChange
@@ -531,6 +523,7 @@ export async function setupMorphUI(
       syncGlassFolder();
       syncRotationBinding();
       refreshPane?.();
+      await applyOrganismMidi(state);
       await onOrganismLoaded?.(state);
       onChange?.();
       // Re-baseline after async env/pane side-effects so we don't stay dirty

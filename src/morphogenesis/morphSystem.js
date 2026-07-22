@@ -404,6 +404,7 @@ export function createMorphSystem({ scene, params: viewerParams }) {
   return {
     sync,
     update: updateNoise,
+    applyTransform: updateTransform,
     dispose,
     getAnalysisMesh,
     getNoiseMix,

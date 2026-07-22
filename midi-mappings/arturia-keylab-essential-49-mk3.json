@@ -1,0 +1,30 @@
+{
+  "enabled": true,
+  "device": {
+    "name": "KL Essential 49 mk3 MIDI",
+    "id": null
+  },
+  "sectionSelection": {
+    "shape": 44,
+    "noise": 45,
+    "texture": 46
+  },
+  "xyzModeToggle": {
+    "cc": 47
+  },
+  "shapeSelection": {
+    "cc": 96
+  },
+  "sectionParameters": {
+    "start": 97,
+    "max": 115
+  },
+  "camera": {
+    "110": "zoom"
+  },
+  "rotation": {
+    "111": "x",
+    "112": "y",
+    "113": "z"
+  }
+}

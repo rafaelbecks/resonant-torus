@@ -1,0 +1,30 @@
+{
+  "enabled": true,
+  "device": {
+    "name": null,
+    "id": null
+  },
+  "sectionSelection": {
+    "shape": 20,
+    "noise": 21,
+    "texture": 22
+  },
+  "xyzModeToggle": {
+    "cc": 23
+  },
+  "shapeSelection": {
+    "cc": 24
+  },
+  "sectionParameters": {
+    "start": 0,
+    "max": 18
+  },
+  "camera": {
+    "30": "zoom"
+  },
+  "rotation": {
+    "31": "x",
+    "32": "y",
+    "33": "z"
+  }
+}

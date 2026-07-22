@@ -78,7 +78,10 @@ export function createInputSystem(camera, controls) {
 
   function applyWalkMovement(delta) {
     if (!params.fpMove || !walkEnabled) return;
-    const speed = params.moveSpeed * delta;
+    // Scale by orbit distance so close zoom isn't twitchy; /5 keeps
+    // moveSpeed ≈ world units/sec at a typical framing distance.
+    const dist = Math.max(0.05, camera.position.distanceTo(controls.target));
+    const speed = params.moveSpeed * delta * (dist / 5);
 
     walkDelta.set(0, 0, 0);
     camera.getWorldDirection(walkForward);

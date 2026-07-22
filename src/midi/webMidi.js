@@ -1,7 +1,12 @@
 /**
- * WebMIDI input — device selection and note on/off events.
+ * WebMIDI input — device selection, note on/off, and CC events.
  */
-export function createWebMidiController({ onNoteOn, onNoteOff, onStateChange } = {}) {
+export function createWebMidiController({
+  onNoteOn,
+  onNoteOff,
+  onCC,
+  onStateChange,
+} = {}) {
   let access = null;
   let input = null;
   let selectedDeviceId = "";
@@ -16,14 +21,19 @@ export function createWebMidiController({ onNoteOn, onNoteOff, onStateChange } =
   }
 
   function handleMessage(ev) {
-    const [status, note, velocity] = ev.data;
+    const [status, data1, data2] = ev.data;
     const cmd = status & 0xf0;
     const channel = status & 0x0f;
 
-    if (cmd === 0x90 && velocity > 0) {
-      onNoteOn?.({ note, velocity, channel });
-    } else if (cmd === 0x80 || (cmd === 0x90 && velocity === 0)) {
-      onNoteOff?.({ note, velocity: velocity || 0, channel });
+    if (cmd === 0xb0) {
+      onCC?.({ cc: data1, value: data2, channel, deviceId: selectedDeviceId });
+      return;
+    }
+
+    if (cmd === 0x90 && data2 > 0) {
+      onNoteOn?.({ note: data1, velocity: data2, channel });
+    } else if (cmd === 0x80 || (cmd === 0x90 && data2 === 0)) {
+      onNoteOff?.({ note: data1, velocity: data2 || 0, channel });
     }
   }
 
@@ -61,6 +71,17 @@ export function createWebMidiController({ onNoteOn, onNoteOff, onStateChange } =
     selectDevice("");
   }
 
+  function getSelectedDevice() {
+    if (!access || !selectedDeviceId) return null;
+    const d = access.inputs.get(selectedDeviceId);
+    if (!d) return null;
+    return {
+      id: d.id,
+      name: d.name || "Unknown device",
+      manufacturer: d.manufacturer || "",
+    };
+  }
+
   return {
     isSupported,
     requestAccess,
@@ -68,5 +89,6 @@ export function createWebMidiController({ onNoteOn, onNoteOff, onStateChange } =
     selectDevice,
     disconnect,
     getSelectedDeviceId: () => selectedDeviceId,
+    getSelectedDevice,
   };
 }

@@ -17,6 +17,16 @@ const VIEWER_KEYS = [
 
 const DEFAULT_SPECIMEN_LABEL = "morphogenesis · acoustic organism";
 
+/** @type {{ serialize: () => object | null, apply: (midi: object) => void | Promise<void> } | null} */
+let midiHooks = null;
+
+/**
+ * Register MIDI serialize/apply hooks (from tools panel).
+ * Lets .organism files store zoom/smoothing/mapping/device prefs.
+ */
+export function setOrganismMidiHooks(hooks) {
+  midiHooks = hooks;
+}
 const ORGANISM_OPEN_OPTS = {
   multiple: false,
   types: [
@@ -92,12 +102,13 @@ function contentFingerprint() {
   return JSON.stringify({
     morph: Object.fromEntries(MORPH_PARAM_KEYS.map((k) => [k, morphParams[k]])),
     viewer: Object.fromEntries(VIEWER_KEYS.map((k) => [k, viewerParams[k]])),
+    midi: midiHooks?.serialize?.() ?? null,
   });
 }
 
 export function serializeOrganism({ id = session.id ?? createOrganismId() } = {}) {
   clampMorphParams();
-  return {
+  const state = {
     type: ORGANISM_TYPE,
     version: ORGANISM_VERSION,
     id,
@@ -105,6 +116,9 @@ export function serializeOrganism({ id = session.id ?? createOrganismId() } = {}
     morph: Object.fromEntries(MORPH_PARAM_KEYS.map((k) => [k, morphParams[k]])),
     viewer: Object.fromEntries(VIEWER_KEYS.map((k) => [k, viewerParams[k]])),
   };
+  const midi = midiHooks?.serialize?.();
+  if (midi) state.midi = midi;
+  return state;
 }
 
 export function applyOrganismState(state) {
@@ -134,6 +148,14 @@ export function applyOrganismState(state) {
   }
 
   return state.id ?? null;
+}
+
+/** Apply midi block from a loaded organism (async — device connect). */
+export async function applyOrganismMidi(state) {
+  const midi = state?.midi;
+  if (!midi || !midiHooks?.apply) return false;
+  await midiHooks.apply(midi);
+  return true;
 }
 
 function refreshSpecimenLabel() {
